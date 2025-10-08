@@ -17,8 +17,9 @@ void main() async {
   await Process.run('flutter', ['run', '-d', 'web-server', '--web-port', '8080']);
 }
 
-String _getLocalIP() {
-  for (var interface in NetworkInterface.list()) {
+Future<String> _getLocalIP() async {
+  final interfaces = await NetworkInterface.list();
+  for (var interface in interfaces) {
     for (var addr in interface.addresses) {
       if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
         return addr.address;

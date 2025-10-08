@@ -4,21 +4,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../firebase_options.dart';
 import 'local_game_service.dart';
 import 'http_game_service.dart';
+import 'websocket_game_service.dart';
 
 class FirebaseService {
   static FirebaseDatabase? _database;
   static FirebaseAuth? _auth;
   static bool _isInitialized = false;
   static bool _useLocalService = false; // Utiliser le service HTTP pour le multijoueur
-  static bool _useHttpService = true; // Mode HTTP pour multijoueur partagé
+  static bool _useHttpService = false; // Mode HTTP pour multijoueur partagé
+  static bool _useWebSocketService = true; // Mode WebSocket pour multijoueur temps réel
   static final LocalGameService _localService = LocalGameService();
   static final HttpGameService _httpService = HttpGameService();
+  static final WebSocketGameService _webSocketService = WebSocketGameService();
   
   // Initialiser Firebase
   static Future<void> initialize() async {
     if (_isInitialized) return;
     
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      await _webSocketService.initialize();
+    } else if (_useHttpService) {
       await _httpService.initialize();
     } else if (_useLocalService) {
       await _localService.initialize();
@@ -50,7 +55,9 @@ class FirebaseService {
   
   // Créer une room de jeu
   static Future<String> createGameRoom(String roomName) async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.createGameRoom(roomName);
+    } else if (_useHttpService) {
       return await _httpService.createGameRoom(roomName);
     } else if (_useLocalService) {
       return await _localService.createGameRoom(roomName);
@@ -85,7 +92,9 @@ class FirebaseService {
   
   // Rejoindre une room existante
   static Future<void> joinGameRoom(String roomId) async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.joinGameRoom(roomId);
+    } else if (_useHttpService) {
       return await _httpService.joinGameRoom(roomId);
     } else if (_useLocalService) {
       return await _localService.joinGameRoom(roomId);
@@ -124,7 +133,9 @@ class FirebaseService {
   
   // Quitter une room
   static Future<void> leaveGameRoom(String roomId) async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.leaveGameRoom(roomId);
+    } else if (_useHttpService) {
       return await _httpService.leaveGameRoom(roomId);
     } else if (_useLocalService) {
       return await _localService.leaveGameRoom(roomId);
@@ -166,7 +177,9 @@ class FirebaseService {
   
   // Écouter les changements d'une room
   static Stream<Map<String, dynamic>?> listenToRoom(String roomId) {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return _webSocketService.listenToRoom(roomId);
+    } else if (_useHttpService) {
       return _httpService.listenToRoom(roomId);
     } else if (_useLocalService) {
       return _localService.listenToRoom(roomId);
@@ -182,7 +195,9 @@ class FirebaseService {
   
   // Mettre à jour l'état de préparation d'un joueur
   static Future<void> updatePlayerReady(String roomId, bool isReady) async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.updatePlayerReady(roomId, isReady);
+    } else if (_useHttpService) {
       return await _httpService.updatePlayerReady(roomId, isReady);
     } else if (_useLocalService) {
       return await _localService.updatePlayerReady(roomId, isReady);
@@ -196,7 +211,9 @@ class FirebaseService {
   
   // Mettre à jour l'état du jeu
   static Future<void> updateGameState(String roomId, String gameState, {Map<String, dynamic>? gameData}) async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.updateGameState(roomId, gameState, gameData: gameData);
+    } else if (_useHttpService) {
       return await _httpService.updateGameState(roomId, gameState, gameData: gameData);
     } else if (_useLocalService) {
       return await _localService.updateGameState(roomId, gameState, gameData: gameData);
@@ -216,7 +233,9 @@ class FirebaseService {
   
   // Obtenir la liste des rooms disponibles
   static Stream<List<Map<String, dynamic>>> getAvailableRooms() {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return _webSocketService.getAvailableRooms();
+    } else if (_useHttpService) {
       return _httpService.getAvailableRoomsStream();
     } else if (_useLocalService) {
       return _localService.getAvailableRooms();
@@ -237,7 +256,9 @@ class FirebaseService {
   
   // Connexion anonyme pour le jeu
   static Future<void> signInAnonymously() async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.signInAnonymously();
+    } else if (_useHttpService) {
       return await _httpService.signInAnonymously();
     } else if (_useLocalService) {
       return await _localService.signInAnonymously();
@@ -248,7 +269,9 @@ class FirebaseService {
   
   // Déconnexion
   static Future<void> signOut() async {
-    if (_useHttpService) {
+    if (_useWebSocketService) {
+      return await _webSocketService.signOut();
+    } else if (_useHttpService) {
       return await _httpService.signOut();
     } else if (_useLocalService) {
       return await _localService.signOut();

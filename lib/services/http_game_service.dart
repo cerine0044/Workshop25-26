@@ -9,7 +9,7 @@ class HttpGameService {
 
   String? _currentUserId;
   String? _currentRoomId;
-  String _serverUrl = 'http://192.0.0.2:5002'; // URL du serveur backend
+  String _serverUrl = 'http://10.151.18.84:5001'; // URL du serveur backend
 
   // Initialiser le service
   Future<void> initialize() async {
