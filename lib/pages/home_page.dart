@@ -7,6 +7,7 @@ import 'page3_crossword.dart';
 import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
+import 'room_management_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -170,6 +171,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _buildDebugButton('Page 4', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page4Tram()))),
                         _buildDebugButton('Page 5', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page5Notifications()))),
                         _buildDebugButton('Success', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmSuccessPage()))),
+                        _buildDebugButton('Rooms', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RoomManagementPage()))),
                       ],
                     ),
                   ],
@@ -195,6 +197,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const Page1Puzzle()),
+            );
+          },
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Mode Multiplayer
+        _buildModeButton(
+          title: 'MODE MULTIJOUEUR',
+          subtitle: 'Joue avec d\'autres',
+          icon: Icons.people,
+          color: Colors.greenAccent,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const RoomManagementPage()),
             );
           },
         ),

@@ -37,6 +37,11 @@ dependencies:
   sensors_plus:
   torch_light:
   audioplayers: ^6.1.0
+  
+  # Firebase dependencies
+  firebase_core: ^3.6.0
+  firebase_database: ^11.1.0
+  firebase_auth: ^5.3.1
 
 dev_dependencies:
   flutter_test:
