@@ -29,13 +29,13 @@ void main() async {
   print('📱 Votre IP: $localIP');
   print('');
   print('🌐 URLs à partager:');
-  print('   Application: http://$localIP:8084');
+  print('   Application: http://$localIP:8085');
   print('   API Backend: http://$localIP:5002');
   print('');
   print('📋 Instructions pour l\'autre PC:');
   print('1. Connectez-vous au même WiFi');
   print('2. Ouvrez un navigateur');
-  print('3. Allez à: http://$localIP:8084');
+  print('3. Allez à: http://$localIP:8085');
   print('4. Les rooms seront partagées entre tous les PC ! 🎉');
   print('');
   
@@ -208,7 +208,7 @@ void main() async {
     [
       'run', 
       '-d', 'web-server', 
-      '--web-port', '8084', 
+      '--web-port', '8085', 
       '--web-hostname', '0.0.0.0'
     ],
     mode: ProcessStartMode.inheritStdio,
