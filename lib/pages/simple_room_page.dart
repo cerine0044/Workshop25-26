@@ -1,38 +1,16 @@
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class SimpleRoomPage extends StatefulWidget {
+  const SimpleRoomPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Pandora Box',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepPurple,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
-      home: const HomePage(),
-    );
-  }
+  State<SimpleRoomPage> createState() => _SimpleRoomPageState();
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
+class _SimpleRoomPageState extends State<SimpleRoomPage> {
   final TextEditingController _roomNameController = TextEditingController();
   final TextEditingController _roomIdController = TextEditingController();
+  bool _isLoading = false;
   String _currentRoomId = '';
   List<String> _players = [];
 
@@ -67,7 +45,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _createRoom,
+                    onPressed: _showCreateRoomDialog,
                     icon: const Icon(Icons.add_circle),
                     label: const Text('Créer un salon'),
                     style: ElevatedButton.styleFrom(
@@ -80,7 +58,7 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(width: 15),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _joinRoom,
+                    onPressed: _showJoinRoomDialog,
                     icon: const Icon(Icons.login),
                     label: const Text('Rejoindre'),
                     style: ElevatedButton.styleFrom(
@@ -165,7 +143,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _createRoom() {
+  void _showCreateRoomDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -186,19 +164,7 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (_roomNameController.text.trim().isNotEmpty) {
-                final roomId = DateTime.now().millisecondsSinceEpoch.toString();
-                setState(() {
-                  _currentRoomId = roomId;
-                  _players = ['Vous (Hôte)'];
-                });
-                _showSnackBar('Salon créé ! ID: $roomId', Colors.green);
-                Navigator.pop(context);
-              } else {
-                _showSnackBar('Veuillez entrer un nom de salon', Colors.red);
-              }
-            },
+            onPressed: _createRoom,
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
             child: const Text('Créer', style: TextStyle(color: Colors.white)),
           ),
@@ -207,7 +173,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _joinRoom() {
+  void _showJoinRoomDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -228,24 +194,74 @@ class _HomePageState extends State<HomePage> {
             child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            onPressed: () {
-              if (_roomIdController.text.trim().isNotEmpty) {
-                setState(() {
-                  _currentRoomId = _roomIdController.text.trim();
-                  _players = ['Joueur 1', 'Vous'];
-                });
-                _showSnackBar('Connexion réussie !', Colors.green);
-                Navigator.pop(context);
-              } else {
-                _showSnackBar('Veuillez entrer un ID de salon', Colors.red);
-              }
-            },
+            onPressed: _joinRoom,
             style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
             child: const Text('Rejoindre', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+  }
+
+  void _createRoom() async {
+    if (_roomNameController.text.trim().isEmpty) {
+      _showSnackBar('Veuillez entrer un nom de salon', Colors.red);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Simuler la création
+      await Future.delayed(const Duration(seconds: 1));
+      
+      final roomId = DateTime.now().millisecondsSinceEpoch.toString();
+      setState(() {
+        _currentRoomId = roomId;
+        _players = ['Vous (Hôte)'];
+      });
+      
+      _showSnackBar('Salon créé ! ID: $roomId', Colors.green);
+      Navigator.pop(context);
+    } catch (e) {
+      _showSnackBar('Erreur lors de la création', Colors.red);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _joinRoom() async {
+    if (_roomIdController.text.trim().isEmpty) {
+      _showSnackBar('Veuillez entrer un ID de salon', Colors.red);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Simuler la connexion
+      await Future.delayed(const Duration(seconds: 1));
+      
+      setState(() {
+        _currentRoomId = _roomIdController.text.trim();
+        _players = ['Joueur 1', 'Vous'];
+      });
+      
+      _showSnackBar('Connexion réussie !', Colors.green);
+      Navigator.pop(context);
+    } catch (e) {
+      _showSnackBar('Erreur lors de la connexion', Colors.red);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _showSnackBar(String message, Color color) {
