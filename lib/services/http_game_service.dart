@@ -9,7 +9,7 @@ class HttpGameService {
 
   String? _currentUserId;
   String? _currentRoomId;
-  String _serverUrl = 'http://10.151.18.84:5001'; // URL du serveur backend
+  String _serverUrl = 'http://192.168.1.20:5002'; // URL du serveur backend
 
   // Initialiser le service
   Future<void> initialize() async {
@@ -74,11 +74,11 @@ class HttpGameService {
         final List<dynamic> roomsJson = jsonDecode(response.body);
         return roomsJson.cast<Map<String, dynamic>>();
       } else {
-        return [];
+        throw Exception('Serveur backend non accessible (${response.statusCode})');
       }
     } catch (e) {
       print('Erreur lors de la récupération des rooms: $e');
-      return [];
+      throw Exception('Impossible de se connecter au serveur backend: $e');
     }
   }
 
@@ -105,7 +105,8 @@ class HttpGameService {
         final rooms = await getAvailableRooms();
         yield rooms;
       } catch (e) {
-        yield [];
+        // En cas d'erreur, émettre une erreur au lieu d'une liste vide
+        yield* Stream.error(e);
       }
       await Future.delayed(const Duration(seconds: 2));
     }

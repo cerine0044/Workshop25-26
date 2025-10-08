@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/firebase_service.dart';
+import '../services/http_game_service.dart';
+import '../services/error_handler.dart';
+import 'page1_puzzle.dart';
+import 'dart:async';
 
 class RoomManagementPage extends StatefulWidget {
   const RoomManagementPage({super.key});
@@ -15,32 +18,47 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
   Map<String, dynamic>? _currentRoom;
   List<Map<String, dynamic>> _availableRooms = [];
   bool _isLoading = false;
+  
+  // Variables pour la gestion du chrono et de la redirection
+  Timer? _gameStartTimer;
+  bool _gameStarted = false;
+  int _countdown = 3;
+  bool _showCountdown = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeFirebase();
+    _initializeHttpService();
   }
 
-  Future<void> _initializeFirebase() async {
+  Future<void> _initializeHttpService() async {
     setState(() => _isLoading = true);
     try {
-      await FirebaseService.initialize();
-      await FirebaseService.signInAnonymously();
+      await HttpGameService().initialize();
+      await HttpGameService().signInAnonymously();
       _loadAvailableRooms();
     } catch (e) {
-      _showError('Erreur d\'initialisation: $e');
+      final errorMessage = 'Erreur d\'initialisation: $e';
+      ErrorHandler().handleError(errorMessage);
+      _showError(errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
   void _loadAvailableRooms() {
-    FirebaseService.getAvailableRooms().listen((rooms) {
-      setState(() {
-        _availableRooms = rooms;
-      });
-    });
+    HttpGameService().getAvailableRoomsStream().listen(
+      (rooms) {
+        setState(() {
+          _availableRooms = rooms;
+        });
+      },
+      onError: (error) {
+        final errorMessage = 'Erreur lors du chargement des rooms: $error';
+        ErrorHandler().handleError(errorMessage);
+        _showError(errorMessage);
+      },
+    );
   }
 
   Future<void> _createRoom() async {
@@ -51,13 +69,15 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
 
     setState(() => _isLoading = true);
     try {
-      final roomId = await FirebaseService.createGameRoom(_roomNameController.text.trim());
+      final roomId = await HttpGameService().createGameRoom(_roomNameController.text.trim());
       setState(() => _currentRoomId = roomId);
       _listenToCurrentRoom();
       _roomNameController.clear();
       _showSuccess('Room créée avec succès!');
     } catch (e) {
-      _showError('Erreur lors de la création: $e');
+      final errorMessage = 'Erreur lors de la création: $e';
+      ErrorHandler().handleError(errorMessage);
+      _showError(errorMessage);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -66,7 +86,7 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
   Future<void> _joinRoom(String roomId) async {
     setState(() => _isLoading = true);
     try {
-      await FirebaseService.joinGameRoom(roomId);
+      await HttpGameService().joinGameRoom(roomId);
       setState(() => _currentRoomId = roomId);
       _listenToCurrentRoom();
       _showSuccess('Room rejointe avec succès!');
@@ -80,7 +100,7 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
   void _listenToCurrentRoom() {
     if (_currentRoomId == null) return;
     
-    FirebaseService.listenToRoom(_currentRoomId!).listen((roomData) {
+    HttpGameService().listenToRoom(_currentRoomId!).listen((roomData) {
       setState(() {
         _currentRoom = roomData;
       });
@@ -92,7 +112,7 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
     
     setState(() => _isLoading = true);
     try {
-      await FirebaseService.leaveGameRoom(_currentRoomId!);
+      await HttpGameService().leaveGameRoom(_currentRoomId!);
       setState(() {
         _currentRoomId = null;
         _currentRoom = null;
@@ -119,7 +139,7 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
       final currentPlayer = players[currentPlayerId];
       if (currentPlayer != null) {
         final newReadyState = !(currentPlayer['isReady'] ?? false);
-        await FirebaseService.updatePlayerReady(_currentRoomId!, newReadyState);
+        await HttpGameService().updatePlayerReady(_currentRoomId!, newReadyState);
       }
     }
   }
@@ -251,10 +271,10 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
                                         return Card(
                                           margin: const EdgeInsets.only(bottom: 8),
                                           child: ListTile(
-                                            title: Text(room['name'] ?? 'Room sans nom'),
-                                            subtitle: Text('$playerCount joueur(s) - ID: ${room['id']}'),
+                                            title: Text(room['name']?.toString() ?? 'Room sans nom'),
+                                            subtitle: Text('$playerCount joueur(s) - ID: ${room['id']?.toString() ?? 'N/A'}'),
                                             trailing: ElevatedButton(
-                                              onPressed: () => _joinRoom(room['id']),
+                                              onPressed: () => _joinRoom(room['id']?.toString() ?? ''),
                                               child: const Text('Rejoindre'),
                                             ),
                                           ),
