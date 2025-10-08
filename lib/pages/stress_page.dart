@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
+import 'page5_notifications.dart';
 import 'package:torch_light/torch_light.dart';
 
 class StressPage extends StatefulWidget {
@@ -371,7 +372,7 @@ class _StressPageState extends State<StressPage> {
                                   ? () {
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) => const _NextPagePlaceholder(),
+                                          builder: (_) => const Page5Notifications(),
                                         ),
                                       );
                                     }
@@ -393,19 +394,7 @@ class _StressPageState extends State<StressPage> {
   }
 }
 
-class _NextPagePlaceholder extends StatelessWidget {
-  const _NextPagePlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Page 3 — Placeholder')),
-      body: const Center(
-        child: Text('Implémentez ici la Page 3.'),
-      ),
-    );
-  }
-}
+// Removed placeholder; real navigation goes to Page5Notifications.
 
 class _StressGauge extends StatelessWidget {
   final double value; // 0..1
@@ -511,6 +500,10 @@ class _ProgressPainter extends CustomPainter {
     final Rect rect = Offset.zero & size;
     final double start = -math.pi / 2;
     final double sweep = (math.pi * 2) * progress.clamp(0.0, 1.0);
+    if (sweep <= 0.001) {
+      // Avoid zero-sweep gradients which can crash CanvasKit on web.
+      return;
+    }
 
     // Gradient stroke for progress
     final Paint paint = Paint()

@@ -36,6 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   sensors_plus:
   torch_light:
+  audioplayers: ^5.2.1
 
 dev_dependencies:
   flutter_test:
