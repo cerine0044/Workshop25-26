@@ -4,10 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'page5.dart';
+import 'page5_notifications.dart';
 
 class Page4Tram extends StatefulWidget {
-  const Page4Tram({super.key});
+  final Function(Map<String, dynamic>)? onComplete;
+  
+  const Page4Tram({super.key, this.onComplete});
 
   @override
   State<Page4Tram> createState() => _Page4TramState();
@@ -250,9 +252,22 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
       },
     );
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const Page5()),
-    );
+    
+    // Appeler le callback si fourni
+    if (widget.onComplete != null) {
+      widget.onComplete!({
+        'questionsAnswered': questionsCount,
+        'levierCount': _countLevier,
+        'inactionCount': _countInaction,
+        'extremeCount': _countExtreme,
+        'completionTime': DateTime.now().toIso8601String(),
+      });
+    } else {
+      // Mode standalone (ancien comportement)
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const Page5Notifications()),
+      );
+    }
   }
 
   @override

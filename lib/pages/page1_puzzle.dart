@@ -1,11 +1,13 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'stress_page.dart';
+import 'page3_crossword.dart';
 import 'page4_tram.dart';
 
 class Page1Puzzle extends StatefulWidget {
-  const Page1Puzzle({super.key});
+  final Function(Map<String, dynamic>)? onComplete;
+  
+  const Page1Puzzle({super.key, this.onComplete});
 
   @override
   State<Page1Puzzle> createState() => _Page1PuzzleState();
@@ -66,9 +68,19 @@ class _Page1PuzzleState extends State<Page1Puzzle> {
                         ElevatedButton(
                           onPressed: unlocked
                               ? () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const StressPage()),
-                                  );
+                                  // Appeler le callback si fourni
+                                  if (widget.onComplete != null) {
+                                    widget.onComplete!({
+                                      'buttonsFound': _found.where((v) => v).length,
+                                      'totalButtons': 4,
+                                      'completionTime': DateTime.now().toIso8601String(),
+                                    });
+                                  } else {
+                                    // Mode standalone (ancien comportement)
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const Page3Crossword()),
+                                    );
+                                  }
                                 }
                               : null,
                           child: const Text('BoutonFinal — Salle 2'),

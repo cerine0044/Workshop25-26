@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'page1_puzzle.dart';
+import 'bluetooth_game_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,6 +13,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool _showModeSelection = false;
 
   @override
   void initState() {
@@ -85,20 +87,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
 
-            // Big mysterious Start button
+            // Mode selection or Start button
             Center(
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, _) {
                   final double t = _controller.value;
                   final double pulse = 1.0 + 0.05 * math.sin(t * math.pi * 2);
+                  
+                  if (_showModeSelection) {
+                    return _buildModeSelection();
+                  }
+                  
                   return Transform.scale(
                     scale: pulse,
                     child: GestureDetector(
                       onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const Page1Puzzle()),
-                        );
+                        setState(() {
+                          _showModeSelection = true;
+                        });
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 22),
@@ -138,10 +145,142 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 24.0),
                 child: Text(
-                  'Chrono: commence dès que tu appuies sur START',
+                  _showModeSelection 
+                    ? 'Choisis ton mode de jeu'
+                    : 'Chrono: commence dès que tu appuies sur START',
                   style: TextStyle(color: Colors.white.withOpacity(0.7)),
                 ),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeSelection() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Mode Solo
+        _buildModeButton(
+          title: 'MODE SOLO',
+          subtitle: 'Joue seul',
+          icon: Icons.person,
+          color: Colors.blueAccent,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const Page1Puzzle()),
+            );
+          },
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Mode Bluetooth
+        _buildModeButton(
+          title: 'MODE BLUETOOTH',
+          subtitle: '2 joueurs cross-platform',
+          icon: Icons.bluetooth,
+          color: Colors.greenAccent,
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const BluetoothGamePage()),
+            );
+          },
+        ),
+        
+        const SizedBox(height: 20),
+        
+        // Retour
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _showModeSelection = false;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+            ),
+            child: const Text(
+              'RETOUR',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModeButton({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.8), width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+          gradient: LinearGradient(
+            colors: [
+              color.withOpacity(0.8),
+              color.withOpacity(0.4),
+            ],
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 24,
+            ),
+            const SizedBox(width: 16),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

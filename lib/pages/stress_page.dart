@@ -5,11 +5,13 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'page5_notifications.dart';
+import 'page3_crossword.dart';
 import 'package:torch_light/torch_light.dart';
 
 class StressPage extends StatefulWidget {
-  const StressPage({super.key});
+  final Function(Map<String, dynamic>)? onComplete;
+  
+  const StressPage({super.key, this.onComplete});
 
   @override
   State<StressPage> createState() => _StressPageState();
@@ -370,11 +372,21 @@ class _StressPageState extends State<StressPage> {
                                   : null,
                               onTap: _thresholdReached
                                   ? () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (_) => const Page5Notifications(),
-                                        ),
-                                      );
+                                      // Appeler le callback si fourni
+                                      if (widget.onComplete != null) {
+                                        widget.onComplete!({
+                                          'peakIntensity': _peakIntensity,
+                                          'thresholdReached': _thresholdReached,
+                                          'completionTime': DateTime.now().toIso8601String(),
+                                        });
+                                      } else {
+                                        // Mode standalone (ancien comportement)
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) => const Page3Crossword(),
+                                          ),
+                                        );
+                                      }
                                     }
                                   : null,
                               pulseT: _elapsedMs.toDouble(),
