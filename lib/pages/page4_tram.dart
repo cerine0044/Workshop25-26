@@ -45,8 +45,9 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
 
   // Contrôles et feedback
   bool _paused = false;
-  String? _lastFeedback; // micro feedback post-choix
+  String? _currentFeedback; // feedback affiché sur l'image
   bool _isDead = false; // écran de mort si timer dépassé
+  String? _lastChoiceType; // type du dernier choix pour message contextuel
 
   // Stats de décisions
   int _countLevier = 0;
@@ -143,7 +144,8 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     if (_index < questionsCount - 1) {
       setState(() {
         _index++;
-        _lastFeedback = null;
+        _currentFeedback = null;
+        _lastChoiceType = null;
       });
       _startTimer();
     } else {
@@ -157,13 +159,16 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     // Comptage selon libellé
     if (label.toLowerCase().contains('aiguillage') || label.toLowerCase().contains('dévier')) {
       _countLevier++;
-      _lastFeedback = 'Vous avez dévié: 1 écrasé, 5 sauvés';
+      _lastChoiceType = 'levier';
+      _currentFeedback = 'Vous avez dévié: 1 écrasé, 5 sauvés';
     } else if (label.toLowerCase().contains('ne rien faire') || label.toLowerCase().contains('continue')) {
       _countInaction++;
-      _lastFeedback = 'Inaction: 5 écrasés';
+      _lastChoiceType = 'inaction';
+      _currentFeedback = 'Inaction: 5 écrasés';
     } else {
       _countExtreme++;
-      _lastFeedback = 'Intervention extrême: issue incertaine';
+      _lastChoiceType = 'extreme';
+      _currentFeedback = 'Intervention extrême: issue incertaine';
     }
 
     _playHorn();
@@ -202,19 +207,43 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
         return AlertDialog(
           backgroundColor: Colors.black,
           title: const Text('Résumé de vos décisions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Aiguillage (dévier): $_countLevier', style: const TextStyle(color: Colors.white70)),
-              Text('Inaction: $_countInaction', style: const TextStyle(color: Colors.white70)),
-              Text('Intervention extrême: $_countExtreme', style: const TextStyle(color: Colors.white70)),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Aiguillage (dévier): $_countLevier', style: const TextStyle(color: Colors.white70)),
+                Text('Inaction: $_countInaction', style: const TextStyle(color: Colors.white70)),
+                Text('Intervention extrême: $_countExtreme', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white24),
+                const SizedBox(height: 16),
+                const Text(
+                  'Le Dilemme du Tramway',
+                  style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ce test explore vos intuitions morales face à des choix impossibles. Il révèle comment nous pesons les vies humaines et les conséquences de nos actions.',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '• Dévier = Agir activement pour sauver plus de vies\n• Ne rien faire = Laisser le destin suivre son cours\n• Intervention extrême = Prendre des risques supplémentaires',
+                  style: TextStyle(color: Colors.white60, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Il n\'y a pas de "bonne" réponse - seulement votre façon personnelle de naviguer l\'éthique.',
+                  style: TextStyle(color: Colors.cyanAccent, fontSize: 12, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w800)),
+              child: const Text('Continuer', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w800)),
             ),
           ],
         );
@@ -293,28 +322,17 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Barre supérieur: progression + anneau timer + pause/passer dans AppBar
+                    // Barre supérieur: progression circulaire + anneau timer
                     Row(
                       children: [
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Question ${_index + 1}/$questionsCount', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                              const SizedBox(height: 6),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: LinearProgressIndicator(
-                                  value: progress,
-                                  minHeight: 8,
-                                  backgroundColor: Colors.white10,
-                                  valueColor: AlwaysStoppedAnimation<Color>(accent),
-                                ),
-                              ),
-                            ],
+                          child: _QuestionProgressCircles(
+                            currentIndex: _index,
+                            totalQuestions: questionsCount,
+                            accentColor: accent,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 16),
                         _TimerRing(secondsRemaining: _remaining, totalSeconds: secondsPerQuestion),
                       ],
                     ),
@@ -345,15 +363,6 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
                       _ChoiceButton(label: q.options[2], color: accent, onTap: () => _onChoiceTap(q.options[2])),
                     ],
 
-                    if (_lastFeedback != null) ...[
-                      const SizedBox(height: 12),
-                      Center(
-                        child: Text(
-                          _lastFeedback!,
-                          style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
-                        ),
-                      ),
-                    ],
 
                     const Spacer(),
 
@@ -362,7 +371,7 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
                 ),
               ),
 
-            // Overlay d'image impact visuel
+            // Overlay d'image impact visuel avec feedback
             if (_overlayImageUrl != null)
               IgnorePointer(
                 child: AnimatedOpacity(
@@ -370,19 +379,48 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
                   opacity: _overlayOpacity,
                   child: Container(
                     color: Colors.black.withOpacity(0.9),
-                    child: Center(
-                      child: Transform.rotate(
-                        angle: (math.sin(_bgController.value * math.pi * 2) * 0.02),
-                        child: Image.asset(
-                          _overlayImageUrl!,
-                          width: double.infinity,
-                          height: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) {
-                            return Icon(Icons.warning_amber_rounded, size: 160, color: Colors.redAccent.withOpacity(0.9));
-                          },
+                    child: Stack(
+                      children: [
+                        // Image de fond
+                        Center(
+                          child: Transform.rotate(
+                            angle: (math.sin(_bgController.value * math.pi * 2) * 0.02),
+                            child: Image.asset(
+                              _overlayImageUrl!,
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stack) {
+                                return Icon(Icons.warning_amber_rounded, size: 160, color: Colors.redAccent.withOpacity(0.9));
+                              },
+                            ),
+                          ),
                         ),
-                      ),
+                        // Feedback sur l'image
+                        if (_currentFeedback != null)
+                          Positioned(
+                            bottom: 100,
+                            left: 20,
+                            right: 20,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.8),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+                              ),
+                              child: Text(
+                                _currentFeedback!,
+                                style: const TextStyle(
+                                  color: Colors.redAccent,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -394,37 +432,119 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
   }
 
   List<_TramQuestion> _generateQuestions() {
-    final List<String> base = [
-      "Le tram fonce sur 5 personnes. Actionner un levier le dévie vers 1 personne.",
-      "Tu peux pousser une personne très corpulente pour stopper le tram et sauver 5 autres.",
-      "Le tram sauvera 5 médecins si tu sacrifies 1 enfant en changeant d’aiguillage.",
-      "Sauver 3 proches ou 5 inconnus en actionnant un bouton.",
-      "1 personne âgée vs 4 jeunes adultes: changer la trajectoire?",
-      "Levier: sauver 5 prisonniers ou 2 sauveteurs?",
-      "Dévier le tram vers un robot autonome ou percuter 3 humains?",
-      "Sacrifier ton animal de compagnie ou 3 inconnus?",
-      "Sacrifier un politicien influent pour sauver 5 citoyens ordinaires?",
-      "Sauver 1 scientifique clé ou 4 artistes?",
-      "Le tram détruit un pont si tu ne le dévies pas: 2 ouvriers sur la voie alternative.",
-      "Dévier vers 1 conducteur dans sa voiture arrêtée ou laisser 3 piétons?",
-      "Levier bloqué: pousser une personne à la main pour le débloquer et sauver 5.",
-      "Dévier vers 1 personne qui t’a sauvé la vie autrefois ou laisser 4 inconnus?",
-      "Sauver 5 aujourd’hui ou laisser 1 blessé grave mourir pour sauver potentiellement 10 demain.",
-      "Le tram menace un hôpital. Dévier vers 2 travailleurs d’entretien?",
-      "Sacrifier un criminel recherché pour en sauver 4 innocents?",
-      "Dévier vers un véhicule autonome (sans passagers) mais risquer une explosion, ou 2 piétons?",
-      "Sauver 5 enfants ou 3 chercheurs d’un vaccin?",
-      "Dévier vers 1 personne inconsciente attachée à la voie ou laisser 4 personnes conscientes?",
+    final dilemmas = [
+      // Questions faciles (1-5) - Dilemmes basiques
+      _TramQuestion(
+        prompt: 'Un tramway hors contrôle fonce vers 5 personnes. Vous pouvez actionner un aiguillage pour le dévier vers 1 personne. Que faites-vous ?',
+        options: ['Actionner l\'aiguillage', 'Ne rien faire'],
+        difficulty: 1,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes anonymes. Vous pouvez le dévier vers 1 personne anonyme. Que faites-vous ?',
+        options: ['Dévier vers 1 personne', 'Laisser faire'],
+        difficulty: 1,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne. Que faites-vous ?',
+        options: ['Actionner l\'aiguillage', 'Ne pas intervenir'],
+        difficulty: 1,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne. Que faites-vous ?',
+        options: ['Dévier vers 1 personne', 'Laisser le destin agir'],
+        difficulty: 1,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne. Que faites-vous ?',
+        options: ['Actionner l\'aiguillage', 'Ne rien faire'],
+        difficulty: 1,
+      ),
+
+      // Questions moyennes (6-10) - Dilemmes avec caractéristiques
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 enfants. Vous pouvez le dévier vers 1 adulte. Que faites-vous ?',
+        options: ['Sauver les enfants', 'Ne pas intervenir'],
+        difficulty: 2,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes âgées. Vous pouvez le dévier vers 1 jeune. Que faites-vous ?',
+        options: ['Dévier vers le jeune', 'Laisser le destin agir'],
+        difficulty: 2,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes handicapées. Vous pouvez le dévier vers 1 personne valide. Que faites-vous ?',
+        options: ['Dévier vers la personne valide', 'Laisser faire'],
+        difficulty: 2,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui porte un bébé. Que faites-vous ?',
+        options: ['Dévier vers la personne avec bébé', 'Ne rien faire'],
+        difficulty: 2,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble malade. Que faites-vous ?',
+        options: ['Dévier vers la personne malade', 'Laisser faire'],
+        difficulty: 2,
+      ),
+
+      // Questions difficiles (11-15) - Dilemmes personnels
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers votre famille (3 personnes). Vous pouvez le dévier vers des inconnus (2 personnes). Que faites-vous ?',
+        options: ['Dévier vers les inconnus', 'Laisser faire'],
+        difficulty: 3,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers votre meilleur ami. Que faites-vous ?',
+        options: ['Dévier vers votre ami', 'Ne rien faire'],
+        difficulty: 3,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui vous a sauvé la vie. Que faites-vous ?',
+        options: ['Dévier vers votre sauveur', 'Ne pas intervenir'],
+        difficulty: 3,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui vous a fait du mal. Que faites-vous ?',
+        options: ['Dévier vers cette personne', 'Laisser le destin agir'],
+        difficulty: 3,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble riche. Que faites-vous ?',
+        options: ['Dévier vers la personne riche', 'Ne pas intervenir'],
+        difficulty: 3,
+      ),
+
+      // Questions très difficiles (16-20) - Dilemmes moraux complexes
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble méchante. Que faites-vous ?',
+        options: ['Dévier vers la personne méchante', 'Ne rien faire'],
+        difficulty: 4,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble intelligente. Que faites-vous ?',
+        options: ['Dévier vers la personne intelligente', 'Ne pas intervenir'],
+        difficulty: 4,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble belle. Que faites-vous ?',
+        options: ['Dévier vers la personne belle', 'Ne rien faire'],
+        difficulty: 4,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble forte. Que faites-vous ?',
+        options: ['Dévier vers la personne forte', 'Ne pas intervenir'],
+        difficulty: 4,
+      ),
+      _TramQuestion(
+        prompt: 'Un tramway fonce vers 5 personnes. Vous pouvez le dévier vers 1 personne qui semble faible. Que faites-vous ?',
+        options: ['Dévier vers la personne faible', 'Laisser le destin agir'],
+        difficulty: 4,
+      ),
     ];
-    return List<_TramQuestion>.generate(questionsCount, (i) {
-      final String p = base[i % base.length];
-      final List<String> opts = [
-        'Actionner l’aiguillage: le train écrase 1 pour en épargner 5',
-        'Ne rien faire: le train continue et écrase 5 personnes',
-        'Option extrême: intervention directe, risque d’écraser 1 ou plus',
-      ];
-      return _TramQuestion(prompt: p, options: opts);
-    });
+
+    // Mélange les dilemmes pour éviter la répétition
+    dilemmas.shuffle();
+    return dilemmas.take(questionsCount).toList();
   }
 
   Color _colorForIndex(int i) {
@@ -455,6 +575,32 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
       _overlayImageUrl = _imageAssets[questionIndex % _imageAssets.length];
       _overlayOpacity = 1.0;
     });
+  }
+
+  Color _getContextualColor() {
+    switch (_lastChoiceType) {
+      case 'levier':
+        return Colors.greenAccent;
+      case 'inaction':
+        return Colors.orangeAccent;
+      case 'extreme':
+        return Colors.purpleAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _getContextualMessage() {
+    switch (_lastChoiceType) {
+      case 'levier':
+        return 'Vous avez choisi l\'action directe précédemment';
+      case 'inaction':
+        return 'Vous avez choisi la passivité précédemment';
+      case 'extreme':
+        return 'Vous avez choisi l\'intervention extrême précédemment';
+      default:
+        return '';
+    }
   }
 }
 
@@ -588,7 +734,147 @@ class _MissingAssetsScreen extends StatelessWidget {
 class _TramQuestion {
   final String prompt;
   final List<String> options;
-  _TramQuestion({required this.prompt, required this.options});
+  final int difficulty;
+  _TramQuestion({required this.prompt, required this.options, required this.difficulty});
+}
+
+class _QuestionProgressCircles extends StatelessWidget {
+  final int currentIndex;
+  final int totalQuestions;
+  final Color accentColor;
+  
+  const _QuestionProgressCircles({
+    required this.currentIndex,
+    required this.totalQuestions,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Titre avec numéro actuel
+        Row(
+          children: [
+            Text(
+              'Question ',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              '${currentIndex + 1}',
+              style: TextStyle(
+                color: accentColor,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              ' / $totalQuestions',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        
+        // Cercles de progression
+        SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: totalQuestions,
+            itemBuilder: (context, index) {
+              final bool isCompleted = index < currentIndex;
+              final bool isCurrent = index == currentIndex;
+              final bool isPending = index > currentIndex;
+              
+              return Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: _ProgressCircle(
+                  questionNumber: index + 1,
+                  isCompleted: isCompleted,
+                  isCurrent: isCurrent,
+                  isPending: isPending,
+                  accentColor: accentColor,
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProgressCircle extends StatelessWidget {
+  final int questionNumber;
+  final bool isCompleted;
+  final bool isCurrent;
+  final bool isPending;
+  final Color accentColor;
+  
+  const _ProgressCircle({
+    required this.questionNumber,
+    required this.isCompleted,
+    required this.isCurrent,
+    required this.isPending,
+    required this.accentColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Color circleColor;
+    Color textColor;
+    double circleSize = 36;
+    
+    if (isCompleted) {
+      circleColor = accentColor;
+      textColor = Colors.white;
+    } else if (isCurrent) {
+      circleColor = accentColor.withOpacity(0.3);
+      textColor = accentColor;
+      circleSize = 40; // Légèrement plus grand pour la question actuelle
+    } else {
+      circleColor = Colors.white.withOpacity(0.1);
+      textColor = Colors.white.withOpacity(0.4);
+    }
+    
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: circleSize,
+      height: circleSize,
+      decoration: BoxDecoration(
+        color: circleColor,
+        shape: BoxShape.circle,
+        border: isCurrent ? Border.all(color: accentColor, width: 2) : null,
+        boxShadow: isCurrent ? [
+          BoxShadow(
+            color: accentColor.withOpacity(0.3),
+            blurRadius: 8,
+            spreadRadius: 2,
+          ),
+        ] : null,
+      ),
+      child: Center(
+        child: Text(
+          '$questionNumber',
+          style: TextStyle(
+            color: textColor,
+            fontSize: isCurrent ? 16 : 14,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _HudChip extends StatelessWidget {
