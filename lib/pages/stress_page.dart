@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:torch_light/torch_light.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+enum _Difficulty { easy, normal, hard }
 
 class StressPage extends StatefulWidget {
   const StressPage({super.key});
@@ -28,7 +31,7 @@ class _StressPageState extends State<StressPage> {
   static const double gravity = 9.80665; // m/s^2
   static const double noiseFloor = 0.25; // g units; ignore tiny shakes
   static const double smoothing = 0.15; // EMA smoothing factor
-  static const double triggerThreshold = 0.65; // intensity to unlock button
+  static const double triggerThreshold = 0.65; // default; UI may override via difficulty
 
   double _ema = 0.0; // exponential moving average of intensity
 
@@ -42,21 +45,42 @@ class _StressPageState extends State<StressPage> {
   Timer? _uiTicker; // drives particles and timer repaint
   int _elapsedMs = 0;
   double _score = 0.0; // accumulate intensity over time
+  double? _bestSeconds; // persisted best time to unlock
+
+  // Difficulty & dynamic threshold
+  _Difficulty _difficulty = _Difficulty.normal;
+  double get _triggerThreshold {
+    switch (_difficulty) {
+      case _Difficulty.easy:
+        return 0.50;
+      case _Difficulty.normal:
+        return 0.65;
+      case _Difficulty.hard:
+        return 0.80;
+    }
+  }
 
   // Particles
   final List<_Particle> _particles = <_Particle>[];
   final math.Random _rng = math.Random();
 
+  // Countdown state
+  bool _countdownActive = true;
+  int _countdown = 3;
+  Timer? _countdownTimer;
+
   @override
   void initState() {
     super.initState();
-    _startListening();
+    _startCountdown();
     _startUiTicker();
+    _loadBest();
   }
 
   @override
   void dispose() {
     _stopListening();
+    _countdownTimer?.cancel();
     super.dispose();
   }
 
@@ -84,7 +108,8 @@ class _StressPageState extends State<StressPage> {
       // Normalize into 0..1 window (cap at 1 for UI)
       final double normalized = (intensity / 1.0).clamp(0.0, 1.0);
 
-      bool shouldUnlock = normalized >= triggerThreshold;
+      if (_countdownActive) return; // ignore during countdown
+      bool shouldUnlock = normalized >= _triggerThreshold;
 
       // Torch feedback: flicker stronger with intensity
       await _updateTorch(normalized);
@@ -98,6 +123,7 @@ class _StressPageState extends State<StressPage> {
       if (!wasUnlocked && _thresholdReached && !_celebrated) {
         _burstParticles();
         _celebrated = true;
+        _maybeSaveBest();
       }
 
       _maybeHaptic();
@@ -122,7 +148,14 @@ class _StressPageState extends State<StressPage> {
       double normalized = _ema - idlePenalty * 0.35; // decay with idle
       normalized = normalized.clamp(0.0, 1.0);
 
-      final bool shouldUnlock = normalized >= triggerThreshold;
+      if (_countdownActive) {
+        // During countdown, keep intensity at zero for a clean start
+        setState(() {
+          _currentIntensity = 0.0;
+        });
+        return;
+      }
+      final bool shouldUnlock = normalized >= _triggerThreshold;
 
       final bool wasUnlocked = _thresholdReached;
       setState(() {
@@ -133,9 +166,55 @@ class _StressPageState extends State<StressPage> {
       if (!wasUnlocked && _thresholdReached && !_celebrated) {
         _burstParticles();
         _celebrated = true;
+        _maybeSaveBest();
       }
       _maybeHaptic();
     });
+  }
+
+  void _startCountdown() {
+    setState(() {
+      _countdownActive = true;
+      _countdown = 3;
+    });
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_countdown <= 1) {
+        t.cancel();
+        setState(() {
+          _countdownActive = false;
+        });
+        _startListening();
+      } else {
+        setState(() {
+          _countdown -= 1;
+        });
+      }
+    });
+  }
+
+  Future<void> _loadBest() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final double? v = prefs.getDouble('stress_best_seconds');
+      if (v != null) {
+        setState(() {
+          _bestSeconds = v;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _maybeSaveBest() async {
+    final double seconds = _elapsedMs / 1000.0;
+    if (_bestSeconds == null || seconds < _bestSeconds!) {
+      try {
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('stress_best_seconds', seconds);
+        setState(() {
+          _bestSeconds = seconds;
+        });
+      } catch (_) {}
+    }
   }
 
   void _startUiTicker() {
@@ -225,7 +304,7 @@ class _StressPageState extends State<StressPage> {
   Widget build(BuildContext context) {
     final Color progressColor = _thresholdReached
         ? Colors.green
-        : (_currentIntensity >= triggerThreshold ? Colors.orange : Colors.red);
+        : (_currentIntensity >= _triggerThreshold ? Colors.orange : Colors.red);
 
     return Scaffold(
       appBar: AppBar(
@@ -253,6 +332,36 @@ class _StressPageState extends State<StressPage> {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // Difficulty selector (top-left)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: DropdownButton<_Difficulty>(
+                      value: _difficulty,
+                      dropdownColor: Colors.black,
+                      underline: const SizedBox.shrink(),
+                      iconEnabledColor: Colors.white70,
+                      items: const [
+                        DropdownMenuItem(value: _Difficulty.easy, child: Text('Easy', style: TextStyle(color: Colors.white70))),
+                        DropdownMenuItem(value: _Difficulty.normal, child: Text('Normal', style: TextStyle(color: Colors.white70))),
+                        DropdownMenuItem(value: _Difficulty.hard, child: Text('Hard', style: TextStyle(color: Colors.white70))),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() {
+                          _difficulty = v;
+                        });
+                      },
+                    ),
+                  ),
+                ),
                 // Animated reactive background
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
@@ -296,6 +405,23 @@ class _StressPageState extends State<StressPage> {
                     ),
                   ),
                 ),
+                // Countdown overlay
+                if (_countdownActive)
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Text(
+                        '$_countdown',
+                        style: const TextStyle(color: Colors.white, fontSize: 72, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+
                 // Center gauge and text
                 Center(
                   child: Column(
@@ -324,13 +450,23 @@ class _StressPageState extends State<StressPage> {
                   ),
                 ),
 
-                // HUD: score
+                // HUD: score & best time
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: _HudChip(
-                    icon: Icons.stacked_line_chart,
-                    label: 'Score ${(1000 * _score).round()}',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _HudChip(
+                        icon: Icons.stacked_line_chart,
+                        label: 'Score ${(1000 * _score).round()}',
+                      ),
+                      const SizedBox(height: 6),
+                      _HudChip(
+                        icon: Icons.emoji_events_outlined,
+                        label: _bestSeconds == null ? 'Best --:--' : 'Best ${_formatSeconds(_bestSeconds!)}',
+                      ),
+                    ],
                   ),
                 ),
 
@@ -345,7 +481,7 @@ class _StressPageState extends State<StressPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Intensité: ${(_currentIntensity * 100).toStringAsFixed(0)}%   •   Pic: ${(_peakIntensity * 100).toStringAsFixed(0)}%   •   Seuil: ${(triggerThreshold * 100).toStringAsFixed(0)}%',
+                          'Intensité: ${(_currentIntensity * 100).toStringAsFixed(0)}%   •   Pic: ${(_peakIntensity * 100).toStringAsFixed(0)}%   •   Seuil: ${(_triggerThreshold * 100).toStringAsFixed(0)}%',
                           style: const TextStyle(color: Colors.white70),
                           textAlign: TextAlign.center,
                         ),
@@ -353,7 +489,7 @@ class _StressPageState extends State<StressPage> {
                         AnimatedScale(
                           scale: _thresholdReached
                               ? 1.0
-                              : (_currentIntensity >= triggerThreshold * 0.85
+                              : (_currentIntensity >= _triggerThreshold * 0.85
                                   ? 0.95 + 0.05 * (0.5 + 0.5 * math.sin(_elapsedMs / 160))
                                   : 0.95),
                           duration: const Duration(milliseconds: 250),
@@ -365,7 +501,7 @@ class _StressPageState extends State<StressPage> {
                               enabled: _thresholdReached,
                               primaryLabel: _thresholdReached ? 'Passe à l’étape prochaine' : 'T’es presque !',
                               secondaryLabel: !_thresholdReached
-                                  ? 'Encore ${(math.max(0, (triggerThreshold - _currentIntensity) * 100)).toStringAsFixed(0)}%'
+                                  ? 'Encore ${(math.max(0, (_triggerThreshold - _currentIntensity) * 100)).toStringAsFixed(0)}%'
                                   : null,
                               onTap: _thresholdReached
                                   ? () {
@@ -681,4 +817,12 @@ class _NeonActionButton extends StatelessWidget {
   }
 }
 
+
+String _formatSeconds(double s) {
+  final int total = s.floor();
+  final int m = total ~/ 60;
+  final int sec = total % 60;
+  return '${m.toString().padLeft(2, '0')}:${sec.toString().padLeft(2, '0')}'
+      ;
+}
 
