@@ -125,7 +125,7 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     _ticker?.cancel();
     _overlayActive = true;
     _overlayTimer?.cancel();
-    _overlayTimer = Timer(const Duration(seconds: 5), () {
+    _overlayTimer = Timer(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() {
         _overlayOpacity = 0.0;
@@ -309,9 +309,9 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     return List<_TramQuestion>.generate(questionsCount, (i) {
       final String p = base[i % base.length];
       final List<String> opts = [
-        'Actionner le levier',
-        'Ne rien faire',
-        'Alternative risquée',
+        'Actionner l’aiguillage: le train écrase 1 pour en épargner 5',
+        'Ne rien faire: le train continue et écrase 5 personnes',
+        'Option extrême: intervention directe, risque d’écraser 1 ou plus',
       ];
       return _TramQuestion(prompt: p, options: opts);
     });
