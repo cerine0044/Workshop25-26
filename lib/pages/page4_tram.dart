@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'page5.dart';
 
 class Page4Tram extends StatefulWidget {
@@ -15,24 +17,75 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
   static const int questionsCount = 20;
   static const int secondsPerQuestion = 12; // timer par question
 
+  static const List<String> _imageAssets = <String>[
+    'assets/images/tram1.jpg',
+    'assets/images/tram2.jpg',
+    'assets/images/tram3.jpg',
+    'assets/images/tram4.jpg',
+    'assets/images/tram5.jpg',
+  ];
+  static const String _hornAsset = 'assets/sounds/horn.mp3';
+
   late final AnimationController _bgController;
   late List<_TramQuestion> _questions;
   int _index = 0;
   int _remaining = secondsPerQuestion;
   Timer? _ticker;
+  final AudioPlayer _player = AudioPlayer();
+
+  // Overlay visuel pour impacter l'utilisateur
+  String? _overlayImageUrl; // image affichée en plein écran (chemin asset)
+  double _overlayOpacity = 0.0;
+  Timer? _overlayTimer;
+  bool _overlayActive = false; // bloque l'UI quand true
+
+  // Pré-contrôle des assets
+  bool _assetsChecked = false;
+  final List<String> _missingAssets = <String>[];
 
   @override
   void initState() {
     super.initState();
     _questions = _generateQuestions();
     _bgController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
-    _startTimer();
+    _preflightAssets();
+  }
+
+  Future<void> _preflightAssets() async {
+    final List<String> missing = <String>[];
+    // Vérifie images
+    for (final String path in _imageAssets) {
+      try {
+        await rootBundle.load(path);
+      } catch (_) {
+        missing.add(path);
+      }
+    }
+    // Vérifie son
+    try {
+      await rootBundle.load(_hornAsset);
+    } catch (_) {
+      missing.add(_hornAsset);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _missingAssets.clear();
+      _missingAssets.addAll(missing);
+      _assetsChecked = true;
+    });
+
+    if (missing.isEmpty) {
+      _startTimer();
+    }
   }
 
   @override
   void dispose() {
     _ticker?.cancel();
+    _overlayTimer?.cancel();
     _bgController.dispose();
+    _player.dispose();
     super.dispose();
   }
 
@@ -65,7 +118,21 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
   }
 
   void _onChoiceTap() {
-    _advance();
+    if (_overlayActive || !_assetsChecked || _missingAssets.isNotEmpty) return; // pas prêt
+    _playHorn();
+    _showImpactImageFor(_index);
+    // Affiche 5s en plein écran, puis avance
+    _ticker?.cancel();
+    _overlayActive = true;
+    _overlayTimer?.cancel();
+    _overlayTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      setState(() {
+        _overlayOpacity = 0.0;
+        _overlayActive = false;
+      });
+      _advance();
+    });
   }
 
   @override
@@ -107,69 +174,109 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
               },
             ),
 
-            // Contenu principal
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Barre supérieur: question x/20 + timer
-                  Row(
-                    children: [
-                      _HudChip(icon: Icons.directions_railway, label: 'Q ${_index + 1}/$questionsCount'),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _TimerBar(
-                          remainingSeconds: _remaining,
-                          totalSeconds: secondsPerQuestion,
-                          color: accent,
+            if (!_assetsChecked)
+              const Center(
+                child: CircularProgressIndicator(),
+              )
+            else if (_missingAssets.isNotEmpty)
+              _MissingAssetsScreen(missing: _missingAssets)
+            else
+              // Contenu principal
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Barre supérieur: question x/20 + timer
+                    Row(
+                      children: [
+                        _HudChip(icon: Icons.directions_railway, label: 'Q ${_index + 1}/$questionsCount'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _TimerBar(
+                            remainingSeconds: _remaining,
+                            totalSeconds: secondsPerQuestion,
+                            color: accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Enoncé
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white24),
+                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 18, spreadRadius: 2)],
+                      ),
+                      child: Text(
+                        q.prompt,
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1.35),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Choix (les réponses n'ont pas d'importance)
+                    _ChoiceButton(label: q.options[0], color: accent, onTap: _onChoiceTap),
+                    const SizedBox(height: 12),
+                    _ChoiceButton(label: q.options[1], color: accent, onTap: _onChoiceTap),
+                    if (q.options.length > 2) ...[
+                      const SizedBox(height: 12),
+                      _ChoiceButton(label: q.options[2], color: accent, onTap: _onChoiceTap),
+                    ],
+
+                    const Spacer(),
+
+                    // BoutonFinal4 quand fini
+                    if (_index == questionsCount - 1 && _remaining <= 0)
+                      Center(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(builder: (_) => const Page5()),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.redAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                            textStyle: const TextStyle(fontWeight: FontWeight.w900),
+                          ),
+                          child: const Text('BoutonFinal4 — Continuer (Page 5)'),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Enoncé
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.55),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white24),
-                    ),
-                    child: Text(
-                      q.prompt,
-                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Choix (les réponses n'ont pas d'importance)
-                  _ChoiceButton(label: q.options[0], color: accent, onTap: _onChoiceTap),
-                  const SizedBox(height: 10),
-                  _ChoiceButton(label: q.options[1], color: accent, onTap: _onChoiceTap),
-                  if (q.options.length > 2) ...[
-                    const SizedBox(height: 10),
-                    _ChoiceButton(label: q.options[2], color: accent, onTap: _onChoiceTap),
                   ],
+                ),
+              ),
 
-                  const Spacer(),
-
-                  // BoutonFinal4 quand fini
-                  if (_index == questionsCount - 1 && _remaining <= 0)
-                    Center(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(builder: (_) => const Page5()),
-                          );
-                        },
-                        child: const Text('BoutonFinal4 — Continuer (Page 5)'),
+            // Overlay d'image impact visuel
+            if (_overlayImageUrl != null)
+              IgnorePointer(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 140),
+                  opacity: _overlayOpacity,
+                  child: Container(
+                    color: Colors.black.withOpacity(0.9),
+                    child: Center(
+                      child: Transform.rotate(
+                        angle: (math.sin(_bgController.value * math.pi * 2) * 0.02),
+                        child: Image.asset(
+                          _overlayImageUrl!,
+                          width: double.infinity,
+                          height: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stack) {
+                            return Icon(Icons.warning_amber_rounded, size: 160, color: Colors.redAccent.withOpacity(0.9));
+                          },
+                        ),
                       ),
                     ),
-                ],
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -223,6 +330,56 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
       Colors.pinkAccent,
     ];
     return palette[i % palette.length];
+  }
+
+  Future<void> _playHorn() async {
+    try {
+      await _player.stop();
+      await _player.play(AssetSource('sounds/horn.mp3'));
+    } catch (_) {}
+  }
+
+  void _showImpactImageFor(int questionIndex) {
+    _overlayTimer?.cancel();
+    setState(() {
+      _overlayImageUrl = _imageAssets[questionIndex % _imageAssets.length];
+      _overlayOpacity = 1.0;
+    });
+  }
+}
+
+class _MissingAssetsScreen extends StatelessWidget {
+  final List<String> missing;
+  const _MissingAssetsScreen({required this.missing});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      padding: const EdgeInsets.all(24),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Assets manquants',
+                style: TextStyle(color: Colors.redAccent, fontSize: 22, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Veuillez ajouter les fichiers suivants au projet puis relancer:',
+                style: TextStyle(color: Colors.white70),
+              ),
+              const SizedBox(height: 12),
+              ...missing.map((m) => Text('- $m', style: const TextStyle(color: Colors.white))),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

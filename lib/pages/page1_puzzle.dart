@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'stress_page.dart';
+import 'page4_tram.dart';
 
 class Page1Puzzle extends StatefulWidget {
   const Page1Puzzle({super.key});
@@ -59,15 +60,31 @@ class _Page1PuzzleState extends State<Page1Puzzle> {
                       style: const TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: unlocked
-                          ? () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const StressPage()),
-                              );
-                            }
-                          : null,
-                      child: const Text('BoutonFinal — Aller à la Salle 2'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          onPressed: unlocked
+                              ? () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const StressPage()),
+                                  );
+                                }
+                              : null,
+                          child: const Text('BoutonFinal — Salle 2'),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: unlocked
+                              ? () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const Page4Tram()),
+                                  );
+                                }
+                              : null,
+                          child: const Text('Aller Salle 4 (Tram)'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
