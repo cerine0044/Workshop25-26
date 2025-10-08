@@ -45,7 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-    <key>NSCameraUsageDescription</key>
-    <string>Utilisé pour contrôler le flash comme retour visuel du détecteur de stress.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Cette app utilise Bluetooth pour connecter les joueurs en mode multi-joueur.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Cette app utilise Bluetooth pour connecter les joueurs en mode multi-joueur.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Utilisé pour contrôler le flash comme retour visuel du détecteur de stress.</string>
 </dict>
 </plist>

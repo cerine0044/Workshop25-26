@@ -7,9 +7,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'page5_notifications.dart';
 
 class Page4Tram extends StatefulWidget {
-  final Function(Map<String, dynamic>)? onComplete;
-  
-  const Page4Tram({super.key, this.onComplete});
+  const Page4Tram({super.key});
 
   @override
   State<Page4Tram> createState() => _Page4TramState();
@@ -254,20 +252,9 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     if (!mounted) return;
     
     // Appeler le callback si fourni
-    if (widget.onComplete != null) {
-      widget.onComplete!({
-        'questionsAnswered': questionsCount,
-        'levierCount': _countLevier,
-        'inactionCount': _countInaction,
-        'extremeCount': _countExtreme,
-        'completionTime': DateTime.now().toIso8601String(),
-      });
-    } else {
-      // Mode standalone (ancien comportement)
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const Page5Notifications()),
-      );
-    }
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const Page5Notifications()),
+    );
   }
 
   @override

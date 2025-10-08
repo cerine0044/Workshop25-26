@@ -7,9 +7,7 @@ import 'package:flutter/material.dart';
 import 'page5_success.dart';
 
 class Page5Notifications extends StatefulWidget {
-  final Function(Map<String, dynamic>)? onComplete;
-  
-  const Page5Notifications({super.key, this.onComplete});
+  const Page5Notifications({super.key});
 
   @override
   State<Page5Notifications> createState() => _Page5NotificationsState();
@@ -149,18 +147,9 @@ class _Page5NotificationsState extends State<Page5Notifications>
         if (!mounted) return;
         
         // Appeler le callback si fourni
-        if (widget.onComplete != null) {
-          widget.onComplete!({
-            'notificationsDisabled': _popups.length,
-            'totalNotifications': _popups.length,
-            'completionTime': DateTime.now().toIso8601String(),
-          });
-        } else {
-          // Mode standalone (ancien comportement)
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const CalmSuccessPage()),
-          );
-        }
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const CalmSuccessPage()),
+        );
       });
     }
   }

@@ -2,7 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'page1_puzzle.dart';
-import 'bluetooth_game_page.dart';
+import 'stress_page.dart';
+import 'page3_crossword.dart';
+import 'page4_tram.dart';
+import 'page5_notifications.dart';
+import 'page5_success.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -144,11 +148,31 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               alignment: Alignment.bottomCenter,
               child: Padding(
                 padding: const EdgeInsets.only(bottom: 24.0),
-                child: Text(
-                  _showModeSelection 
-                    ? 'Choisis ton mode de jeu'
-                    : 'Chrono: commence dès que tu appuies sur START',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _showModeSelection 
+                        ? 'Choisis ton mode de jeu'
+                        : 'Chrono: commence dès que tu appuies sur START',
+                      style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                    ),
+                    const SizedBox(height: 16),
+                    // Boutons de debug
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildDebugButton('Page 1', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page1Puzzle()))),
+                        _buildDebugButton('Page 2', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StressPage()))),
+                        _buildDebugButton('Page 3', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page3Crossword()))),
+                        _buildDebugButton('Page 4', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page4Tram()))),
+                        _buildDebugButton('Page 5', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page5Notifications()))),
+                        _buildDebugButton('Success', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmSuccessPage()))),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -171,21 +195,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const Page1Puzzle()),
-            );
-          },
-        ),
-        
-        const SizedBox(height: 20),
-        
-        // Mode Bluetooth
-        _buildModeButton(
-          title: 'MODE BLUETOOTH',
-          subtitle: '2 joueurs cross-platform',
-          icon: Icons.bluetooth,
-          color: Colors.greenAccent,
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const BluetoothGamePage()),
             );
           },
         ),
@@ -283,6 +292,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDebugButton(String label, VoidCallback onPressed) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.grey.withOpacity(0.3),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.white.withOpacity(0.5)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );

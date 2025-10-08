@@ -4,9 +4,7 @@ import 'package:flutter/services.dart';
 import 'page4_tram.dart';
 
 class Page3Crossword extends StatefulWidget {
-  final Function(Map<String, dynamic>)? onComplete;
-  
-  const Page3Crossword({super.key, this.onComplete});
+  const Page3Crossword({super.key});
 
   @override
   State<Page3Crossword> createState() => _Page3CrosswordState();
@@ -264,18 +262,9 @@ class _Page3CrosswordState extends State<Page3Crossword> with SingleTickerProvid
           ElevatedButton.icon(
             onPressed: () {
               Navigator.of(context).pop();
-              if (widget.onComplete != null) {
-                widget.onComplete!({
-                  'wordsFound': _wordsFound,
-                  'totalWords': _words.length,
-                  'completionTime': DateTime.now().toIso8601String(),
-                });
-              } else {
-                // Mode standalone (ancien comportement)
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const Page4Tram()),
-                );
-              }
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const Page4Tram()),
+              );
             },
             icon: const Icon(Icons.arrow_forward),
             label: const Text('Continuer'),

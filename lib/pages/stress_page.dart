@@ -9,9 +9,7 @@ import 'page3_crossword.dart';
 import 'package:torch_light/torch_light.dart';
 
 class StressPage extends StatefulWidget {
-  final Function(Map<String, dynamic>)? onComplete;
-  
-  const StressPage({super.key, this.onComplete});
+  const StressPage({super.key});
 
   @override
   State<StressPage> createState() => _StressPageState();
@@ -373,20 +371,11 @@ class _StressPageState extends State<StressPage> {
                               onTap: _thresholdReached
                                   ? () {
                                       // Appeler le callback si fourni
-                                      if (widget.onComplete != null) {
-                                        widget.onComplete!({
-                                          'peakIntensity': _peakIntensity,
-                                          'thresholdReached': _thresholdReached,
-                                          'completionTime': DateTime.now().toIso8601String(),
-                                        });
-                                      } else {
-                                        // Mode standalone (ancien comportement)
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => const Page3Crossword(),
-                                          ),
-                                        );
-                                      }
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => const Page3Crossword(),
+                                        ),
+                                      );
                                     }
                                   : null,
                               pulseT: _elapsedMs.toDouble(),

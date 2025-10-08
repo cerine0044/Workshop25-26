@@ -37,7 +37,6 @@ dependencies:
   sensors_plus:
   torch_light:
   audioplayers: ^6.1.0
-  flutter_blue_plus: ^1.32.10
 
 dev_dependencies:
   flutter_test:
