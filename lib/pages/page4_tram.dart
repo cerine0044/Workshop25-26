@@ -43,17 +43,34 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
   bool _assetsChecked = false;
   final List<String> _missingAssets = <String>[];
 
+  // Contrôles et feedback
+  bool _paused = false;
+  String? _lastFeedback; // micro feedback post-choix
+  bool _isDead = false; // écran de mort si timer dépassé
+
+  // Stats de décisions
+  int _countLevier = 0;
+  int _countInaction = 0;
+  int _countExtreme = 0;
+
   @override
   void initState() {
     super.initState();
     _questions = _generateQuestions();
+    _shuffleQuestionsAndChoices();
     _bgController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
     _preflightAssets();
   }
 
+  void _shuffleQuestionsAndChoices() {
+    _questions.shuffle();
+    for (final _TramQuestion q in _questions) {
+      q.options.shuffle();
+    }
+  }
+
   Future<void> _preflightAssets() async {
     final List<String> missing = <String>[];
-    // Vérifie images
     for (final String path in _imageAssets) {
       try {
         await rootBundle.load(path);
@@ -61,7 +78,6 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
         missing.add(path);
       }
     }
-    // Vérifie son
     try {
       await rootBundle.load(_hornAsset);
     } catch (_) {
@@ -70,8 +86,9 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
 
     if (!mounted) return;
     setState(() {
-      _missingAssets.clear();
-      _missingAssets.addAll(missing);
+      _missingAssets
+        ..clear()
+        ..addAll(missing);
       _assetsChecked = true;
     });
 
@@ -93,13 +110,31 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     _ticker?.cancel();
     _remaining = secondsPerQuestion;
     _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
+      if (!mounted || _paused) return;
       setState(() {
         _remaining--;
         if (_remaining <= 0) {
-          _advance();
+          _showDeathScreen();
         }
       });
+    });
+  }
+
+  void _showDeathScreen() {
+    _ticker?.cancel();
+    _playHorn();
+    setState(() {
+      _isDead = true;
+    });
+    
+    // Auto-retour après 3 secondes
+    Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      setState(() {
+        _isDead = false;
+        _remaining = secondsPerQuestion;
+      });
+      _startTimer();
     });
   }
 
@@ -108,20 +143,33 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     if (_index < questionsCount - 1) {
       setState(() {
         _index++;
+        _lastFeedback = null;
       });
       _startTimer();
     } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const Page5()),
-      );
+      _showSummaryThenGoNext();
     }
   }
 
-  void _onChoiceTap() {
+  void _onChoiceTap(String label) {
     if (_overlayActive || !_assetsChecked || _missingAssets.isNotEmpty) return; // pas prêt
+
+    // Comptage selon libellé
+    if (label.toLowerCase().contains('aiguillage') || label.toLowerCase().contains('dévier')) {
+      _countLevier++;
+      _lastFeedback = 'Vous avez dévié: 1 écrasé, 5 sauvés';
+    } else if (label.toLowerCase().contains('ne rien faire') || label.toLowerCase().contains('continue')) {
+      _countInaction++;
+      _lastFeedback = 'Inaction: 5 écrasés';
+    } else {
+      _countExtreme++;
+      _lastFeedback = 'Intervention extrême: issue incertaine';
+    }
+
     _playHorn();
     _showImpactImageFor(_index);
-    // Affiche 5s en plein écran, puis avance
+
+    // Affiche 2s en plein écran, puis avance
     _ticker?.cancel();
     _overlayActive = true;
     _overlayTimer?.cancel();
@@ -133,6 +181,49 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
       });
       _advance();
     });
+    setState(() {});
+  }
+
+  void _togglePause() {
+    setState(() {
+      _paused = !_paused;
+    });
+  }
+
+  void _skipQuestion() {
+    if (!_assetsChecked || _missingAssets.isNotEmpty) return;
+    _advance();
+  }
+
+  Future<void> _showSummaryThenGoNext() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.black,
+          title: const Text('Résumé de vos décisions', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Aiguillage (dévier): $_countLevier', style: const TextStyle(color: Colors.white70)),
+              Text('Inaction: $_countInaction', style: const TextStyle(color: Colors.white70)),
+              Text('Intervention extrême: $_countExtreme', style: const TextStyle(color: Colors.white70)),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w800)),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const Page5()),
+    );
   }
 
   @override
@@ -140,11 +231,24 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     final _TramQuestion q = _questions[_index];
     final double t = _bgController.value;
     final Color accent = _colorForIndex(_index);
+    final double progress = (_index + 1) / questionsCount;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.black,
         title: const Text('Salle 4 — Dilemme du tramway'),
+        actions: [
+          IconButton(
+            tooltip: _paused ? 'Reprendre' : 'Pause',
+            icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+            onPressed: _togglePause,
+          ),
+          IconButton(
+            tooltip: 'Passer',
+            icon: const Icon(Icons.skip_next),
+            onPressed: _skipQuestion,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Stack(
@@ -180,6 +284,8 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
               )
             else if (_missingAssets.isNotEmpty)
               _MissingAssetsScreen(missing: _missingAssets)
+            else if (_isDead)
+              _DeathScreen()
             else
               // Contenu principal
               Padding(
@@ -187,18 +293,29 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Barre supérieur: question x/20 + timer
+                    // Barre supérieur: progression + anneau timer + pause/passer dans AppBar
                     Row(
                       children: [
-                        _HudChip(icon: Icons.directions_railway, label: 'Q ${_index + 1}/$questionsCount'),
-                        const SizedBox(width: 8),
                         Expanded(
-                          child: _TimerBar(
-                            remainingSeconds: _remaining,
-                            totalSeconds: secondsPerQuestion,
-                            color: accent,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Question ${_index + 1}/$questionsCount', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 6),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  minHeight: 8,
+                                  backgroundColor: Colors.white10,
+                                  valueColor: AlwaysStoppedAnimation<Color>(accent),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        const SizedBox(width: 12),
+                        _TimerRing(secondsRemaining: _remaining, totalSeconds: secondsPerQuestion),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -220,34 +337,27 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
                     const SizedBox(height: 16),
 
                     // Choix (les réponses n'ont pas d'importance)
-                    _ChoiceButton(label: q.options[0], color: accent, onTap: _onChoiceTap),
+                    _ChoiceButton(label: q.options[0], color: accent, onTap: () => _onChoiceTap(q.options[0])),
                     const SizedBox(height: 12),
-                    _ChoiceButton(label: q.options[1], color: accent, onTap: _onChoiceTap),
+                    _ChoiceButton(label: q.options[1], color: accent, onTap: () => _onChoiceTap(q.options[1])),
                     if (q.options.length > 2) ...[
                       const SizedBox(height: 12),
-                      _ChoiceButton(label: q.options[2], color: accent, onTap: _onChoiceTap),
+                      _ChoiceButton(label: q.options[2], color: accent, onTap: () => _onChoiceTap(q.options[2])),
+                    ],
+
+                    if (_lastFeedback != null) ...[
+                      const SizedBox(height: 12),
+                      Center(
+                        child: Text(
+                          _lastFeedback!,
+                          style: const TextStyle(color: Colors.white70, fontStyle: FontStyle.italic),
+                        ),
+                      ),
                     ],
 
                     const Spacer(),
 
-                    // BoutonFinal4 quand fini
-                    if (_index == questionsCount - 1 && _remaining <= 0)
-                      Center(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute(builder: (_) => const Page5()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.redAccent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                            textStyle: const TextStyle(fontWeight: FontWeight.w900),
-                          ),
-                          child: const Text('BoutonFinal4 — Continuer (Page 5)'),
-                        ),
-                      ),
+                    // BoutonFinal4 quand fini (ne s'affiche plus; résumé avant navigation)
                   ],
                 ),
               ),
@@ -348,6 +458,98 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
   }
 }
 
+class _TimerRing extends StatelessWidget {
+  final int secondsRemaining;
+  final int totalSeconds;
+  const _TimerRing({required this.secondsRemaining, required this.totalSeconds});
+
+  @override
+  Widget build(BuildContext context) {
+    final int sr = secondsRemaining.clamp(0, totalSeconds);
+    final double p = (sr / totalSeconds).clamp(0.0, 1.0);
+    final bool warn = sr <= 3;
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: p,
+            strokeWidth: 6,
+            backgroundColor: Colors.white12,
+            valueColor: AlwaysStoppedAnimation<Color>(warn ? Colors.redAccent : Colors.cyanAccent),
+          ),
+          Text(
+            '$sr',
+            style: TextStyle(color: warn ? Colors.redAccent : Colors.white, fontWeight: FontWeight.w800),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeathScreen extends StatelessWidget {
+  const _DeathScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'TU ES MORT',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 48,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 4,
+                shadows: [
+                  Shadow(
+                    color: Colors.redAccent.withOpacity(0.8),
+                    blurRadius: 20,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'ÉCRASÉ',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 6,
+                shadows: [
+                  Shadow(
+                    color: Colors.redAccent.withOpacity(0.8),
+                    blurRadius: 15,
+                    offset: const Offset(0, 0),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Le train t\'a écrasé par manque de décision',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MissingAssetsScreen extends StatelessWidget {
   final List<String> missing;
   const _MissingAssetsScreen({required this.missing});
@@ -409,42 +611,6 @@ class _HudChip extends StatelessWidget {
           Icon(icon, size: 16, color: Colors.white70),
           const SizedBox(width: 6),
           Text(label, style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimerBar extends StatelessWidget {
-  final int remainingSeconds;
-  final int totalSeconds;
-  final Color color;
-  const _TimerBar({required this.remainingSeconds, required this.totalSeconds, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final double p = (remainingSeconds / totalSeconds).clamp(0, 1).toDouble();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: Stack(
-        children: [
-          Container(height: 16, color: Colors.white10),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: MediaQuery.of(context).size.width * p,
-            height: 16,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [color.withOpacity(0.9), color.withOpacity(0.5)]),
-            ),
-          ),
-          Positioned.fill(
-            child: Center(
-              child: Text(
-                '${remainingSeconds}s',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
         ],
       ),
     );
