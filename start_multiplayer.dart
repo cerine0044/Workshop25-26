@@ -5,7 +5,7 @@ void main() async {
   print('================================');
   
   // Obtenir l'IP locale
-  String localIP = _getLocalIP();
+  String localIP = await _getLocalIP();
   
   print('📱 Adresse de cette machine: http://$localIP:8080');
   print('🔗 Partagez cette adresse avec les autres joueurs');
@@ -24,15 +24,17 @@ void main() async {
   await process.exitCode;
 }
 
-String _getLocalIP() {
-  for (var interface in NetworkInterface.list()) {
+Future<String> _getLocalIP() async {
+  final interfaces = await NetworkInterface.list();
+  for (var interface in interfaces) {
     for (var addr in interface.addresses) {
       if (addr.type == InternetAddressType.IPv4 && 
           !addr.isLoopback && 
-          !addr.address.startsWith('169.254')) {
+          !addr.address.startsWith('169.254') &&
+          !addr.address.startsWith('127.')) {
         return addr.address;
       }
     }
   }
-  return 'localhost';
+  return '192.0.0.2'; // IP du hotspot par défaut
 }
