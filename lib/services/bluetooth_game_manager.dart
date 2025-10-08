@@ -63,16 +63,16 @@ class BluetoothGameManager {
       _isScanning = true;
       List<BluetoothDevice> foundDevices = [];
       
-      // Démarrer le scan
+      // Démarrer le scan avec un timeout plus long pour trouver plus d'appareils
       await FlutterBluePlus.startScan(
-        timeout: const Duration(seconds: 10),
-        withServices: [Guid(serviceUUID)],
+        timeout: const Duration(seconds: 15),
+        // Scanner tous les appareils, pas seulement ceux avec notre service
       );
       
       // Écouter les résultats
       FlutterBluePlus.scanResults.listen((results) {
         for (ScanResult result in results) {
-          if (!foundDevices.any((device) => device.id == result.device.id)) {
+          if (!foundDevices.any((device) => device.remoteId == result.device.remoteId)) {
             foundDevices.add(result.device);
             _devicesController.add(List.from(foundDevices));
           }
@@ -80,7 +80,7 @@ class BluetoothGameManager {
       });
       
       // Attendre la fin du scan
-      await Future.delayed(const Duration(seconds: 10));
+      await Future.delayed(const Duration(seconds: 15));
       await FlutterBluePlus.stopScan();
       
       _isScanning = false;
