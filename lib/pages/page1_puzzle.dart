@@ -2,9 +2,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'stress_page.dart';
+import '../services/http_game_service.dart';
+import 'dart:async';
 
 class Page1Puzzle extends StatefulWidget {
-  const Page1Puzzle({super.key});
+  final bool isMultiplayer;
+  final String? roomId;
+  
+  const Page1Puzzle({super.key, this.isMultiplayer = false, this.roomId});
 
   @override
   State<Page1Puzzle> createState() => _Page1PuzzleState();
@@ -25,6 +30,12 @@ class _Page1PuzzleState extends State<Page1Puzzle> with TickerProviderStateMixin
   bool _gameStarted = false;
   int _score = 0;
   int _maxSteps = 3;
+  
+  // Variables pour le multijoueur
+  Map<String, dynamic>? _roomData;
+  StreamSubscription<Map<String, dynamic>?>? _roomSubscription;
+  bool _isWaitingForOtherPlayer = false;
+  Map<String, dynamic> _otherPlayerProgress = {};
 
   // Couleurs des boutons
   final List<Color> _buttonColors = [
@@ -62,12 +73,113 @@ class _Page1PuzzleState extends State<Page1Puzzle> with TickerProviderStateMixin
       parent: _pulseController,
       curve: Curves.easeInOut,
     ));
+
+    // Si c'est un mode multijoueur, écouter les changements de room
+    if (widget.isMultiplayer && widget.roomId != null) {
+      _listenToRoom();
+    }
+  }
+
+  void _listenToRoom() {
+    _roomSubscription = HttpGameService().listenToRoom(widget.roomId!).listen((roomData) {
+      setState(() {
+        _roomData = roomData;
+      });
+      
+      // Vérifier les progrès des autres joueurs
+      _checkOtherPlayerProgress();
+    });
+  }
+
+  void _checkOtherPlayerProgress() {
+    if (_roomData == null) return;
+    
+    final gameData = _roomData!['gameData'] as Map<String, dynamic>?;
+    if (gameData != null) {
+      final players = Map<String, dynamic>.from(gameData['players'] ?? {});
+      
+      // Trouver les progrès des autres joueurs
+      players.forEach((playerId, progress) {
+        if (playerId != HttpGameService().currentUserId) {
+          _otherPlayerProgress[playerId] = progress;
+        }
+      });
+    }
+  }
+
+  void _updateMyProgress() {
+    if (!widget.isMultiplayer || widget.roomId == null) return;
+    
+    final progress = {
+      'currentStep': _currentStep,
+      'score': _score,
+      'gameCompleted': _gameCompleted,
+      'isPlaying': _isPlayerTurn,
+    };
+    
+    HttpGameService().updateGameState(widget.roomId!, 'playing', gameData: {
+      'players': {
+        HttpGameService().currentUserId: progress,
+      }
+    });
+  }
+
+  void _checkIfCanContinue() {
+    if (!widget.isMultiplayer) {
+      _continueToNextRoom();
+      return;
+    }
+    
+    // En multijoueur, vérifier si l'autre joueur a aussi terminé
+    if (_gameCompleted) {
+      bool otherPlayerCompleted = false;
+      _otherPlayerProgress.forEach((playerId, progress) {
+        if (progress['gameCompleted'] == true) {
+          otherPlayerCompleted = true;
+        }
+      });
+      
+      if (otherPlayerCompleted) {
+        _continueToNextRoom();
+      } else {
+        setState(() {
+          _isWaitingForOtherPlayer = true;
+        });
+        _showWaitingDialog();
+      }
+    }
+  }
+
+  void _showWaitingDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('⏳ En attente'),
+        content: const Text('En attente que l\'autre joueur termine...'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _continueToNextRoom() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const StressPage()),
+    );
   }
 
   @override
   void dispose() {
     _sequenceController.dispose();
     _pulseController.dispose();
+    _roomSubscription?.cancel();
     super.dispose();
   }
 
@@ -172,6 +284,9 @@ class _Page1PuzzleState extends State<Page1Puzzle> with TickerProviderStateMixin
       _playerSequence = [];
     });
     
+    // Mettre à jour les progrès en multijoueur
+    _updateMyProgress();
+    
     // Effet de réussite
     HapticFeedback.heavyImpact();
     
@@ -180,6 +295,9 @@ class _Page1PuzzleState extends State<Page1Puzzle> with TickerProviderStateMixin
       setState(() {
         _gameCompleted = true;
       });
+      
+      // Mettre à jour les progrès finaux
+      _updateMyProgress();
       
       // Animation de victoire
       _celebrateVictory();
@@ -250,9 +368,7 @@ class _Page1PuzzleState extends State<Page1Puzzle> with TickerProviderStateMixin
               TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const StressPage()),
-                  );
+                  _checkIfCanContinue();
                 },
                 child: const Text('Continuer'),
               ),
@@ -358,6 +474,28 @@ class _Page1PuzzleState extends State<Page1Puzzle> with TickerProviderStateMixin
                         ),
                       ],
                       const SizedBox(height: 12),
+                      // Indicateur multijoueur
+                      if (widget.isMultiplayer && _otherPlayerProgress.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.blue),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.people, color: Colors.blue, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Autre joueur: ${_otherPlayerProgress.values.first['score'] ?? 0} points',
+                                style: const TextStyle(color: Colors.blue, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       if (!_gameStarted) ...[
                         ElevatedButton.icon(
                           onPressed: _startGame,

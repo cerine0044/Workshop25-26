@@ -10,7 +10,16 @@ class WebSocketGameService {
 
   String? _currentUserId;
   String? _currentRoomId;
-  String _serverUrl = 'ws://10.151.18.84:5002'; // URL WebSocket du serveur
+  String _serverUrl = 'ws://localhost:5002';
+  
+  // Configuration dynamique du serveur WebSocket
+  void setServerUrl(String url) {
+    _serverUrl = url;
+  }
+  
+  String getServerUrl() {
+    return _serverUrl;
+  } // URL WebSocket du serveur
   WebSocketChannel? _channel;
   StreamController<Map<String, dynamic>>? _roomController;
   StreamController<List<Map<String, dynamic>>>? _roomsController;

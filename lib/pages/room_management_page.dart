@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/http_game_service.dart';
 import '../services/error_handler.dart';
-import 'page1_puzzle.dart';
+import 'start_page.dart';
 import 'dart:async';
 
 class RoomManagementPage extends StatefulWidget {
@@ -19,11 +19,10 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
   List<Map<String, dynamic>> _availableRooms = [];
   bool _isLoading = false;
   
-  // Variables pour la gestion du chrono et de la redirection
-  Timer? _gameStartTimer;
+  // Variables pour la gestion de la redirection
   bool _gameStarted = false;
-  int _countdown = 3;
-  bool _showCountdown = false;
+  Timer? _roomCheckTimer;
+  List<Map<String, dynamic>> _activePlayers = [];
 
   @override
   void initState() {
@@ -104,6 +103,17 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
       setState(() {
         _currentRoom = roomData;
       });
+      
+      // Vérifier les joueurs actifs dans la room
+      _checkActivePlayers();
+      
+      // Vérifier si on peut aller à la page Start (2 joueurs présents)
+      _checkForGameStart(roomData);
+    });
+
+    // Démarrer un timer pour vérifier périodiquement les joueurs actifs
+    _roomCheckTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      _checkActivePlayers();
     });
   }
 
@@ -144,6 +154,112 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
     }
   }
 
+  // Vérifier les joueurs actifs dans la room
+  void _checkActivePlayers() async {
+    if (_currentRoomId == null) return;
+    
+    try {
+      final activePlayers = await HttpGameService().getActivePlayersInRoom(_currentRoomId!);
+      setState(() {
+        _activePlayers = activePlayers;
+      });
+      
+      // Vérifier si la room est vide
+      if (activePlayers.isEmpty) {
+        _handleEmptyRoom();
+      }
+    } catch (e) {
+      print('Erreur lors de la vérification des joueurs actifs: $e');
+    }
+  }
+
+  // Gérer une room vide
+  void _handleEmptyRoom() {
+    setState(() {
+      _currentRoomId = null;
+      _currentRoom = null;
+      _gameStarted = false;
+    });
+    
+    _showError('La room est maintenant vide. Vous avez été déconnecté.');
+  }
+
+  // Vérifier si on peut aller à la page Start (2 joueurs présents)
+  void _checkForGameStart(Map<String, dynamic>? roomData) {
+    if (roomData == null) return;
+    
+    // Utiliser les joueurs actifs plutôt que les données de room
+    final activePlayerCount = _activePlayers.length;
+    
+    // Si on a exactement 2 joueurs actifs et que le jeu n'a pas encore démarré
+    if (activePlayerCount == 2 && !_gameStarted) {
+      _showGameStartDialog();
+    }
+  }
+
+  // Afficher le dialogue de démarrage du jeu
+  void _showGameStartDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('🎮 Prêt à commencer !'),
+        content: const Text('2 joueurs sont présents dans le salon.\nVoulez-vous aller à la page Start ?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Attendre'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _goToStartPage();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('ALLER À START'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Aller à la page Start
+  void _goToStartPage() {
+    setState(() {
+      _gameStarted = true;
+    });
+
+    // Mettre à jour l'état du jeu sur le serveur
+    if (_currentRoomId != null) {
+      HttpGameService().updateGameState(_currentRoomId!, 'ready_to_start');
+    }
+
+    // Rediriger vers la page Start
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => StartPage(
+          isMultiplayer: true,
+          roomId: _currentRoomId,
+        ),
+      ),
+    );
+  }
+
+  // Obtenir le nombre de joueurs dans la room actuelle
+  int _getPlayerCount() {
+    return _activePlayers.length;
+  }
+
+  // Obtenir la liste des joueurs dans la room actuelle
+  List<Map<String, dynamic>> _getPlayers() {
+    return _activePlayers;
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), backgroundColor: Colors.red),
@@ -165,8 +281,8 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
+              ? const Center(child: CircularProgressIndicator())
+              : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -318,25 +434,63 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
                             const SizedBox(height: 16),
                             Text('État: ${_currentRoom!['gameState']}'),
                             const SizedBox(height: 8),
-                            const Text('Joueurs:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            ...Map<String, dynamic>.from(_currentRoom!['players'] ?? {}).entries.map(
-                              (entry) => Padding(
+                            Row(
+                              children: [
+                                Text('Joueurs actifs: ${_getPlayerCount()}/2', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                const Spacer(),
+                                if (_getPlayerCount() < 2) ...[
+                                  const Icon(Icons.hourglass_empty, color: Colors.orange, size: 16),
+                                  const SizedBox(width: 4),
+                                  const Text('En attente...', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                                ] else ...[
+                                  const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                  const SizedBox(width: 4),
+                                  const Text('Prêt !', style: TextStyle(color: Colors.green, fontSize: 12)),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ..._getPlayers().map(
+                              (player) => Padding(
                                 padding: const EdgeInsets.only(left: 16, top: 4),
                                 child: Row(
                                   children: [
-                                    Text(entry.value['name'] ?? 'Joueur'),
-                                    if (entry.value['isHost'] == true)
+                                    Icon(
+                                      Icons.person,
+                                      color: Colors.blue,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(player['name'] ?? 'Joueur'),
+                                    if (player['isHost'] == true)
                                       const Text(' (Hôte)', style: TextStyle(fontStyle: FontStyle.italic)),
                                     const Spacer(),
                                     Icon(
-                                      entry.value['isReady'] == true ? Icons.check_circle : Icons.radio_button_unchecked,
-                                      color: entry.value['isReady'] == true ? Colors.green : Colors.grey,
+                                      Icons.circle,
+                                      color: Colors.green,
+                                      size: 12,
                                     ),
+                                    const SizedBox(width: 4),
+                                    const Text('Actif', style: TextStyle(color: Colors.green, fontSize: 12)),
                                   ],
                                 ),
                               ),
                             ),
                             const SizedBox(height: 16),
+                            // Bouton pour aller à la page Start si 2 joueurs sont présents
+                            if (_getPlayerCount() == 2) ...[
+                              ElevatedButton.icon(
+                                onPressed: _gameStarted ? null : _goToStartPage,
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('ALLER À START'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
                             ElevatedButton.icon(
                               onPressed: _toggleReady,
                               icon: const Icon(Icons.check),
@@ -357,10 +511,12 @@ class _RoomManagementPageState extends State<RoomManagementPage> {
     );
   }
 
+
   @override
   void dispose() {
     _roomNameController.dispose();
     _roomIdController.dispose();
+    _roomCheckTimer?.cancel();
     super.dispose();
   }
 }

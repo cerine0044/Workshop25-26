@@ -29,9 +29,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: ErrorBoundary(
-        child: const HomePage(),
-      ),
+      home: const HomePage(),
       routes: {
         '/': (context) => const HomePage(),
         '/rooms': (context) => const RoomManagementPage(),

@@ -8,6 +8,7 @@ import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
 import 'room_management_page.dart';
+import 'start_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -92,54 +93,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ),
 
-            // Mode selection or Start button
+            // Mode selection
             Center(
               child: AnimatedBuilder(
                 animation: _controller,
                 builder: (context, _) {
-                  final double t = _controller.value;
-                  final double pulse = 1.0 + 0.05 * math.sin(t * math.pi * 2);
-                  
-                  if (_showModeSelection) {
-                    return _buildModeSelection();
-                  }
-                  
-                  return Transform.scale(
-                    scale: pulse,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _showModeSelection = true;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 22),
-                        decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.redAccent.withOpacity(0.8), width: 2),
-                          boxShadow: [
-                            BoxShadow(color: Colors.redAccent.withOpacity(0.5 + 0.3 * math.sin(t * 6)), blurRadius: 28, spreadRadius: 2),
-                          ],
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.redAccent.withOpacity(0.85),
-                              Colors.deepPurpleAccent.withOpacity(0.6),
-                            ],
-                          ),
-                        ),
-                        child: const Text(
-                          'START',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 4,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
+                  return _buildModeSelection();
                 },
               ),
             ),
@@ -152,11 +111,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _showModeSelection 
-                        ? 'Choisis ton mode de jeu'
-                        : 'Chrono: commence dès que tu appuies sur START',
-                      style: TextStyle(color: Colors.white.withOpacity(0.7)),
+                    const Text(
+                      'Choisis ton mode de jeu',
+                      style: TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 16),
                     // Boutons de debug
@@ -196,7 +153,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           color: Colors.blueAccent,
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const Page1Puzzle()),
+              MaterialPageRoute(builder: (_) => const StartPage(isMultiplayer: false)),
             );
           },
         ),

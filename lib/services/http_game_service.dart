@@ -9,7 +9,16 @@ class HttpGameService {
 
   String? _currentUserId;
   String? _currentRoomId;
-  String _serverUrl = 'http://192.168.1.20:5002'; // URL du serveur backend
+  String _serverUrl = 'http://localhost:5001';
+  
+  // Configuration dynamique du serveur
+  void setServerUrl(String url) {
+    _serverUrl = url;
+  }
+  
+  String getServerUrl() {
+    return _serverUrl;
+  } // URL du serveur backend
 
   // Initialiser le service
   Future<void> initialize() async {
@@ -45,20 +54,38 @@ class HttpGameService {
     }
   }
 
-  // Rejoindre une room existante
+  // Rejoindre une room existante (adapté pour le serveur existant)
   Future<void> joinGameRoom(String roomId) async {
     if (_currentUserId == null) {
       throw Exception('Service non initialisé');
     }
 
     try {
-      final response = await http.get(Uri.parse('$_serverUrl/room/$roomId'));
+      // D'abord quitter la room actuelle si on en a une
+      if (_currentRoomId != null && _currentRoomId != roomId) {
+        await leaveGameRoom(_currentRoomId!);
+      }
+
+      // Utiliser l'endpoint existant pour rejoindre
+      final response = await http.put(
+        Uri.parse('$_serverUrl/room/$roomId'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'players': {
+            _currentUserId!: {
+              'name': 'Joueur $_currentUserId',
+              'isHost': false,
+              'isReady': false,
+              'joinedAt': DateTime.now().toIso8601String(),
+            }
+          }
+        }),
+      );
       
       if (response.statusCode == 200) {
         _currentRoomId = roomId;
-        // Ici vous pourriez ajouter le joueur à la room si nécessaire
       } else {
-        throw Exception('Room introuvable');
+        throw Exception('Impossible de rejoindre la room');
       }
     } catch (e) {
       throw Exception('Erreur de connexion: $e');
@@ -130,11 +157,9 @@ class HttpGameService {
     return getRoomStream(roomId);
   }
 
-  // Quitter une room
+  // Quitter une room (adapté pour le serveur existant)
   Future<void> leaveGameRoom(String roomId) async {
-    if (_currentUserId == null) {
-      throw Exception('Service non initialisé');
-    }
+    if (_currentUserId == null) return;
 
     try {
       final response = await http.put(
@@ -142,7 +167,7 @@ class HttpGameService {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'players': {
-            _currentUserId: null, // Supprimer le joueur
+            _currentUserId!: null, // Supprimer le joueur
           }
         }),
       );
@@ -239,5 +264,62 @@ class HttpGameService {
     }
     _currentUserId = null;
     _currentRoomId = null;
+  }
+
+  // Obtenir l'ID utilisateur actuel
+  String? get currentUserId => _currentUserId;
+
+  // Obtenir l'ID de room actuel
+  String? get currentRoomId => _currentRoomId;
+
+  // Vérifier si le joueur est déjà dans une room
+  Future<String?> getCurrentPlayerRoom() async {
+    if (_currentUserId == null) return null;
+    
+    try {
+      final response = await http.get(Uri.parse('$_serverUrl/player/$_currentUserId/room'));
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['roomId'] as String?;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Obtenir les joueurs actifs dans une room (fallback vers l'endpoint existant)
+  Future<List<Map<String, dynamic>>> getActivePlayersInRoom(String roomId) async {
+    try {
+      // Essayer d'abord le nouvel endpoint
+      final response = await http.get(Uri.parse('$_serverUrl/room/$roomId/players'));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> playersJson = jsonDecode(response.body);
+        return playersJson.cast<Map<String, dynamic>>();
+      }
+    } catch (e) {
+      // Fallback vers l'endpoint existant
+      try {
+        final roomData = await getRoom(roomId);
+        if (roomData != null) {
+          final players = Map<String, dynamic>.from(roomData['players'] ?? {});
+          return players.entries.map((entry) => {
+            'id': entry.key,
+            ...Map<String, dynamic>.from(entry.value ?? {}),
+          }).toList();
+        }
+      } catch (e) {
+        print('Erreur lors de la récupération des joueurs: $e');
+      }
+    }
+    return [];
+  }
+
+  // Vérifier si une room est vide
+  Future<bool> isRoomEmpty(String roomId) async {
+    final players = await getActivePlayersInRoom(roomId);
+    return players.isEmpty;
   }
 }
