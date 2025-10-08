@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 
 void main() async {
-  print('🔍 Serveur de Test de Connectivité');
-  print('===================================');
+  print('🌐 Test de Connectivité Réseau - Pandora Box');
+  print('==========================================');
   
+  // Obtenir l'IP locale
   final interfaces = await NetworkInterface.list();
   String? localIP;
   
@@ -21,105 +23,91 @@ void main() async {
   }
   
   if (localIP == null) {
-    localIP = '192.0.0.2';
+    localIP = '10.151.18.84';
   }
   
-  print('📱 IP détectée: $localIP');
-  print('🌐 URL de test: http://$localIP:3000');
+  print('📱 IP locale détectée: $localIP');
   print('');
-  print('📋 Instructions pour l\'autre PC:');
-  print('1. Ouvrez un navigateur sur l\'autre PC');
-  print('2. Allez à: http://$localIP:3000');
-  print('3. Si vous voyez la page de test, le réseau fonctionne !');
-  print('4. Si vous ne voyez rien, le problème est le firewall');
-  print('');
-  print('🚀 Démarrage du serveur de test...');
   
-  final server = await HttpServer.bind(InternetAddress.anyIPv4, 3000);
-  print('✅ Serveur de test démarré sur le port 3000');
-  print('📱 Testez avec: http://$localIP:3000');
-  print('');
-  print('Appuyez sur Ctrl+C pour arrêter');
+  // Test des ports
+  final ports = [5001, 5002, 8084, 8085];
+  print('🔍 Test des ports...');
   
-  await for (HttpRequest request in server) {
-    request.response.headers.add('Access-Control-Allow-Origin', '*');
-    request.response.headers.add('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    request.response.headers.add('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (request.method == 'OPTIONS') {
-      request.response.statusCode = 200;
-      request.response.close();
-      continue;
+  for (final port in ports) {
+    final isOpen = await _testPort(localIP, port);
+    final status = isOpen ? '✅ Ouvert' : '❌ Fermé';
+    print('   Port $port: $status');
+  }
+  
+  print('');
+  
+  // Test de connectivité réseau
+  print('🌐 Test de connectivité réseau...');
+  await _testNetworkConnectivity(localIP);
+  
+  print('');
+  print('📋 Instructions pour tester sur un autre PC:');
+  print('1. Connectez-vous au même réseau WiFi');
+  print('2. Ouvrez un terminal/command prompt');
+  print('3. Testez la connectivité:');
+  print('   ping $localIP');
+  print('4. Testez les ports:');
+  for (final port in ports) {
+    print('   telnet $localIP $port');
+  }
+  print('5. Ou utilisez le client de test:');
+  print('   dart run test_client.dart');
+  print('');
+  print('🎮 URLs à partager:');
+  print('   WebSocket: ws://$localIP:5002');
+  print('   Application: http://$localIP:8085');
+}
+
+Future<bool> _testPort(String host, int port) async {
+  try {
+    final socket = await Socket.connect(host, port, timeout: Duration(seconds: 3));
+    await socket.close();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+Future<void> _testNetworkConnectivity(String localIP) async {
+  // Test ping local
+  try {
+    final result = await Process.run('ping', ['-c', '1', localIP]);
+    if (result.exitCode == 0) {
+      print('✅ Ping local réussi');
+    } else {
+      print('❌ Ping local échoué');
     }
-    
-    request.response.statusCode = 200;
-    request.response.headers.contentType = ContentType.html;
-    request.response.write('''
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Test Connectivité - Pandora Box</title>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            text-align: center; 
-            padding: 50px; 
-            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
-            color: white;
-            margin: 0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            background: rgba(255,255,255,0.1);
-            padding: 30px;
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-        }
-        .success { color: #4CAF50; font-size: 24px; }
-        .info { color: #81C784; margin: 20px 0; }
-        .button {
-            background: #4CAF50;
-            color: white;
-            padding: 15px 30px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 10px;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .button:hover { background: #45a049; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="success">🎉 Connexion Réussie !</h1>
-        <p class="info">Le réseau fonctionne parfaitement entre les PC</p>
-        
-        <div class="info">
-            <p><strong>IP du serveur:</strong> $localIP</p>
-            <p><strong>Port:</strong> 3000</p>
-            <p><strong>Timestamp:</strong> ${DateTime.now()}</p>
-        </div>
-        
-        <div class="info">
-            <p><strong>✅ Prochaines étapes:</strong></p>
-            <p>1. Le réseau fonctionne, le problème était le firewall</p>
-            <p>2. Maintenant vous pouvez utiliser l'application</p>
-            <p>3. Allez à: <a href="http://$localIP:8085" style="color: #4CAF50;">http://$localIP:8085</a></p>
-        </div>
-        
-        <div class="info">
-            <p><strong>🔧 Si l'application ne marche toujours pas:</strong></p>
-            <p>1. Désactivez temporairement le firewall</p>
-            <p>2. Ou ajoutez une exception pour les ports 8085 et 5002</p>
-        </div>
-    </div>
-</body>
-</html>
-    ''');
-    request.response.close();
+  } catch (e) {
+    print('❌ Erreur ping local: $e');
+  }
+  
+  // Test des interfaces réseau
+  print('📡 Interfaces réseau disponibles:');
+  final interfaces = await NetworkInterface.list();
+  for (final interface in interfaces) {
+    print('   ${interface.name}:');
+    for (final addr in interface.addresses) {
+      if (addr.type == InternetAddressType.IPv4) {
+        final type = addr.isLoopback ? 'Loopback' : 'Réseau';
+        print('     $type: ${addr.address}');
+      }
+    }
+  }
+  
+  // Test de résolution DNS
+  try {
+    final addresses = await InternetAddress.lookup('google.com');
+    if (addresses.isNotEmpty) {
+      print('✅ Résolution DNS fonctionnelle');
+    } else {
+      print('❌ Résolution DNS échouée');
+    }
+  } catch (e) {
+    print('❌ Erreur résolution DNS: $e');
   }
 }
