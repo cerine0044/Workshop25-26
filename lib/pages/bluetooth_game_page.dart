@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../services/bluetooth_game_manager.dart';
 import 'game_session.dart';
 
@@ -13,66 +12,70 @@ class BluetoothGamePage extends StatefulWidget {
 
 class _BluetoothGamePageState extends State<BluetoothGamePage> {
   final BluetoothGameManager _bluetoothManager = BluetoothGameManager();
-  List<BluetoothDevice> _foundDevices = [];
+  List<Map<String, dynamic>> _foundDevices = [];
   bool _isScanning = false;
   bool _isConnected = false;
   String _playerName = '';
-  StreamSubscription<List<BluetoothDevice>>? _devicesSubscription;
-  StreamSubscription<bool>? _connectionSubscription;
+  bool _isWebMode = true; // Mode web par défaut
 
   @override
   void initState() {
     super.initState();
-    _initializeBluetooth();
     _playerName = _bluetoothManager.generateDeviceName();
   }
 
   @override
   void dispose() {
-    _devicesSubscription?.cancel();
-    _connectionSubscription?.cancel();
     _bluetoothManager.dispose();
     super.dispose();
   }
 
-  Future<void> _initializeBluetooth() async {
-    bool initialized = await _bluetoothManager.initialize();
-    if (!initialized) {
-      _showErrorDialog('Bluetooth non disponible ou non activé');
-      return;
-    }
-
-    // Écouter les appareils trouvés
-    _devicesSubscription = _bluetoothManager.devicesStream.listen((devices) {
-      setState(() {
-        _foundDevices = devices;
-      });
-    });
-
-    // Écouter les changements de connexion
-    _connectionSubscription = _bluetoothManager.connectionStream.listen((connected) {
-      setState(() {
-        _isConnected = connected;
-      });
-      
-      if (connected) {
-        _showSuccessDialog('Connecté avec succès !');
-        _startGame();
-      }
+  void _simulateBluetoothDevices() {
+    // Simuler des appareils Bluetooth pour la démonstration
+    setState(() {
+      _foundDevices = [
+        {
+          'id': '00:11:22:33:44:55',
+          'name': 'Mystérieux Pandora 456',
+          'rssi': -50,
+        },
+        {
+          'id': '00:11:22:33:44:66',
+          'name': 'Secret Box 789',
+          'rssi': -60,
+        },
+      ];
     });
   }
 
   Future<void> _scanForDevices() async {
+    if (_isWebMode) {
+      // Mode simulation
+      setState(() {
+        _isScanning = true;
+      });
+      
+      await Future.delayed(const Duration(seconds: 2));
+      
+      setState(() {
+        _isScanning = false;
+        _simulateBluetoothDevices();
+      });
+      return;
+    }
+
     setState(() {
       _isScanning = true;
       _foundDevices.clear();
     });
 
     try {
-      List<BluetoothDevice> devices = await _bluetoothManager.scanForDevices();
+      // Pour le vrai Bluetooth, on utiliserait le BluetoothGameManager
+      // Mais en mode web, on simule
+      await Future.delayed(const Duration(seconds: 2));
       setState(() {
-        _foundDevices = devices;
         _isScanning = false;
+        _simulateBluetoothDevices();
       });
     } catch (e) {
       setState(() {
@@ -82,11 +85,21 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
     }
   }
 
-  Future<void> _connectToDevice(BluetoothDevice device) async {
-    bool connected = await _bluetoothManager.connectToDevice(device);
-    if (!connected) {
-      _showErrorDialog('Impossible de se connecter à ${device.name}');
+  Future<void> _connectToDevice(Map<String, dynamic> device) async {
+    if (_isWebMode) {
+      // Mode simulation
+      setState(() {
+        _isConnected = true;
+      });
+      
+      await Future.delayed(const Duration(seconds: 1));
+      _showSuccessDialog('Connecté avec succès ! (Mode démonstration)');
+      _startGame();
+      return;
     }
+
+    // Pour le vrai Bluetooth, on utiliserait le BluetoothGameManager
+    _showErrorDialog('Mode Bluetooth réel non disponible sur le web');
   }
 
   void _startGame() {
@@ -95,7 +108,7 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
         builder: (_) => GameSession(
           playerName: _playerName,
           isBluetoothMode: true,
-          bluetoothManager: _bluetoothManager,
+          bluetoothManager: _isWebMode ? null : _bluetoothManager,
         ),
       ),
     );
@@ -105,12 +118,22 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Erreur'),
-        content: Text(message),
+        backgroundColor: Colors.black87,
+        title: const Text(
+          'Erreur',
+          style: TextStyle(color: Colors.redAccent),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Colors.blueAccent),
+            ),
           ),
         ],
       ),
@@ -121,12 +144,28 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Succès'),
-        content: Text(message),
+        backgroundColor: Colors.black87,
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.greenAccent, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Succès',
+              style: TextStyle(color: Colors.greenAccent),
+            ),
+          ],
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: const Text(
+              'OK',
+              style: TextStyle(color: Colors.blueAccent),
+            ),
           ),
         ],
       ),
@@ -154,6 +193,35 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Mode démonstration
+              if (_isWebMode)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.amber.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info, color: Colors.amber, size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Mode démonstration web - Bluetooth simulé pour les tests',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 20),
+
               // En-tête
               Container(
                 padding: const EdgeInsets.all(16),
@@ -200,14 +268,19 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
                   color: Colors.white.withOpacity(0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  'Instructions:\n'
-                  '1. Assure-toi que Bluetooth est activé\n'
-                  '2. Appuie sur "Scanner" pour trouver des appareils\n'
-                  '3. Sélectionne l\'appareil de ton partenaire\n'
-                  '4. Attends la connexion\n'
-                  '5. Commence à jouer !',
-                  style: TextStyle(
+                child: Text(
+                  _isWebMode 
+                    ? 'Instructions (Mode démo):\n'
+                      '1. Appuie sur "Scanner" pour voir les appareils simulés\n'
+                      '2. Sélectionne un appareil pour te connecter\n'
+                      '3. Commence à jouer en mode démonstration !'
+                    : 'Instructions:\n'
+                      '1. Assure-toi que Bluetooth est activé\n'
+                      '2. Appuie sur "Scanner" pour trouver des appareils\n'
+                      '3. Sélectionne l\'appareil de ton partenaire\n'
+                      '4. Attends la connexion\n'
+                      '5. Commence à jouer !',
+                  style: const TextStyle(
                     color: Colors.white70,
                     fontSize: 14,
                     height: 1.4,
@@ -301,11 +374,13 @@ class _BluetoothGamePageState extends State<BluetoothGamePage> {
                                     color: Colors.blueAccent,
                                   ),
                                   title: Text(
-                                    device.name.isNotEmpty ? device.name : 'Appareil inconnu',
+                                    device['name'] ?? 'Appareil inconnu',
                                     style: const TextStyle(color: Colors.white),
                                   ),
                                   subtitle: Text(
-                                    device.id.toString(),
+                                    _isWebMode 
+                                      ? 'Appareil simulé (démo)'
+                                      : device['id'] ?? '',
                                     style: TextStyle(color: Colors.white.withOpacity(0.6)),
                                   ),
                                   trailing: ElevatedButton(
