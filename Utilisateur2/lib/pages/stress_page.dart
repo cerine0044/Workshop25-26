@@ -373,7 +373,7 @@ class _StressPageState extends State<StressPage> {
                                       // Appeler le callback si fourni
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) => const Page3Crossword(),
+                                          builder: (_) => const Page3Words(),
                                         ),
                                       );
                                     }

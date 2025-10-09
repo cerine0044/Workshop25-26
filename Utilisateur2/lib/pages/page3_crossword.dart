@@ -1,600 +1,1309 @@
-import 'dart:math' as math;
+import 'dart:async';
+import 'dart:math';
+import 'dart:collection';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'page4_tram.dart';
 
-class Page3Crossword extends StatefulWidget {
-  const Page3Crossword({super.key});
+/// Salle 3 — Liste des mots (Word Bank)
+/// Un seul fichier, sans dépendances externes.
+/// - Chrono et jauge de stress (0–100)
+/// - Recherche/filtre/mélange
+/// - Animations légères (opacity/size/container/switcher)
+/// - Responsive: ListView (mobile) / GridView (large)
 
-  @override
-  State<Page3Crossword> createState() => _Page3CrosswordState();
+class WordItem {
+  final String word;
+  final String definition;
+  bool used;
+
+  WordItem({required this.word, required this.definition, this.used = false});
 }
 
-class _Page3CrosswordState extends State<Page3Crossword> with SingleTickerProviderStateMixin {
-  // Grille de mots fléchés (10x10)
-  late List<List<String>> _grid;
-  late List<List<bool>> _isEditable;
-  
-  // Mots RGPD à trouver
-  final List<CrosswordWord> _words = [
-    CrosswordWord(
-      word: 'CONSENTEMENT',
-      definition: 'Autorisation explicite donnée par l\'utilisateur',
-      row: 1,
-      col: 1,
-      isHorizontal: true,
-    ),
-    CrosswordWord(
-      word: 'DONNEES',
-      definition: 'Informations collectées sur les personnes',
-      row: 3,
-      col: 0,
-      isHorizontal: false,
-    ),
-    CrosswordWord(
-      word: 'RGPD',
-      definition: 'Règlement général sur la protection des données',
-      row: 5,
-      col: 2,
-      isHorizontal: true,
-    ),
-    CrosswordWord(
-      word: 'PRIVACY',
-      definition: 'Vie privée en anglais',
-      row: 2,
-      col: 4,
-      isHorizontal: false,
-    ),
-    CrosswordWord(
-      word: 'CYBERSECURITE',
-      definition: 'Protection des systèmes informatiques',
-      row: 7,
-      col: 0,
-      isHorizontal: true,
-    ),
-    CrosswordWord(
-      word: 'HARCELEMENT',
-      definition: 'Comportement répétitif visant à nuire',
-      row: 0,
-      col: 6,
-      isHorizontal: false,
-    ),
-    CrosswordWord(
-      word: 'RESPECT',
-      definition: 'Considération envers les autres',
-      row: 4,
-      col: 8,
-      isHorizontal: true,
-    ),
-    CrosswordWord(
-      word: 'ETHIQUE',
-      definition: 'Ensemble de principes moraux',
-      row: 6,
-      col: 3,
-      isHorizontal: false,
-    ),
-    CrosswordWord(
-      word: 'TRANSPARENCE',
-      definition: 'Qualité de ce qui est clair et visible',
-      row: 8,
-      col: 1,
-      isHorizontal: true,
-    ),
-    CrosswordWord(
-      word: 'DIGNITE',
-      definition: 'Respect de la valeur humaine',
-      row: 9,
-      col: 5,
-      isHorizontal: false,
-    ),
-  ];
-  
-  int _wordsFound = 0;
-  String? _selectedDefinition;
-  bool _gameComplete = false;
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+class Page3Words extends StatefulWidget {
+  const Page3Words({super.key});
+
+  static const String route = '/page3_words';
+
+  @override
+  State<Page3Words> createState() => _Page3WordsState();
+}
+
+class _Page3WordsState extends State<Page3Words> {
+  // Palette
+  // Pandora-like deep purple/blue gradient
+  static const Color colorBg1 = Color(0xFF15162B); // deep indigo
+  static const Color colorBg2 = Color(0xFF1D2453); // midnight purple
+  static const Color colorBg3 = Color(0xFF0F1E3A); // deep navy
+  static const Color colorText = Color(0xFFECF0F1);
+  static const Color colorAccent = Color(0xFF66FCF1);
+
+  // Stress levels colors
+  static const Color colorStressLow = Color(0xFF66FCF1); // 0–39
+  static const Color colorStressMid = Color(0xFFF1C40F); // 40–69
+  static const Color colorStressHigh = Color(0xFFE74C3C); // 70–100
+
+  // Timers/state
+  Timer? _ticker;
+  int _elapsedSeconds = 0;
+  int _stress = 0; // 0–100
+
+  // Data/state
+  final List<WordItem> _allItems = [];
+  String _query = '';
+  bool _hideUsed = false;
+  bool _showAllDefinitions = false;
+
+  // Association (drag-and-drop) mode
+  bool _associationMode = true;
+  final Set<int> _wrongFlashTargets = <int>{}; // target absolute indexes with wrong drop flash
+  // Shuffled pool order for left words list
+  List<int> _poolOrder = <int>[];
+
+  // Definition visibility and first-time tracking
+  final Set<int> _shownDefinitionIndexes = <int>{};
+  final Set<int> _seenDefinitionIndexes = <int>{};
+
+  // Pulse animation when marking used
+  final Set<int> _pulseIndexes = <int>{};
+  // Cyan halo/glow highlight when correct
+  final Set<int> _haloIndexes = <int>{};
+  // Hover states for subtle scale/glow
+  final Set<int> _hoverChipIndexes = <int>{};
+  final Set<int> _hoverTargetIndexes = <int>{};
+  // Bounce indices on wrong drop
+  final Set<int> _bounceTargets = <int>{};
+
+  // Shuffle penalty control (second+ shuffle within 10s)
+  DateTime? _lastShuffleTime;
+
+  // Shake when stress >= 90
+  bool _shake = false;
+
+  // Conseils personnalisés par mot (affichés quand trouvé)
+  late final Map<String, String> _adviceByWord = <String, String>{
+    'STRESS': 'Conseil: fais une pause de 2 minutes et respire profondément.',
+    'SOMMEIL': 'Conseil: essaie de garder des heures de coucher régulières.',
+    'ECRAN': 'Conseil: fais des pauses 20-20-20 pour reposer tes yeux.',
+    'AMIS': 'Conseil: parle à un ami de confiance quand ça ne va pas.',
+    'RGPD': 'Conseil: vérifie les autorisations des applis avant d’accepter.',
+    'DONNEES': 'Conseil: partage le minimum nécessaire en ligne.',
+    'PRIVEE': 'Conseil: rends tes profils privés si possible.',
+    'HARCELER': 'Conseil: signale et bloque, ne reste pas seul face au harcèlement.',
+    'CONFIANCE': 'Conseil: note 3 qualités de toi pour la renforcer.',
+    'SECURITE': 'Conseil: active la double authentification.',
+    'PAUSE': 'Conseil: étire-toi et hydrate-toi régulièrement.',
+    'FOCUS': 'Conseil: coupe les notifications 25 minutes pour te concentrer.',
+    'RESPIRE': 'Conseil: inspire 4s, retiens 4s, expire 6s (x5).',
+    'RESEAU': 'Conseil: choisis des communautés positives.',
+    'SOURCE': 'Conseil: vérifie au moins 2 sources fiables.',
+    'APPLI': 'Conseil: désinstalle celles que tu n’utilises plus.',
+    'TEMPS': 'Conseil: fixe une limite quotidienne d’écran.',
+    'ZEN': 'Conseil: pratique 3 minutes de pleine conscience.',
+  };
 
   @override
   void initState() {
     super.initState();
-    _initializeGrid();
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    ));
-    _animationController.forward();
+    _seedData();
+    _reshufflePool();
+    _startTicker();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _ticker?.cancel();
     super.dispose();
   }
 
-  void _initializeGrid() {
-    _grid = List.generate(10, (_) => List.filled(10, ''));
-    _isEditable = List.generate(10, (_) => List.filled(10, false));
-    
-    // Placer les mots dans la grille
-    for (final word in _words) {
-      _placeWord(word);
-    }
-  }
+  void _seedData() {
+    final List<WordItem> raw = [
+      WordItem(word: 'STRESS', definition: 'Émotion ressentie quand on est trop sous pression.'),
+      WordItem(word: 'SOMMEIL', definition: 'Ce qu’il faut bien avoir pour récupérer.'),
+      WordItem(word: 'ECRAN', definition: 'Surface sur laquelle on regarde ordi ou smartphone.'),
+      WordItem(word: 'AMIS', definition: 'Personnes avec qui on aime passer du temps.'),
+      WordItem(word: 'RGPD', definition: 'Loi européenne qui protège nos données personnelles.'),
+      WordItem(word: 'DONNEES', definition: 'Informations qu’on partage en ligne sans toujours s’en rendre compte.'),
+      WordItem(word: 'PRIVEE', definition: 'Type de vie qu’il faut protéger sur Internet.'),
+      WordItem(word: 'HARCELER', definition: 'Faire du mal à quelqu’un de façon répétée.'),
+      WordItem(word: 'CONFIANCE', definition: 'Ce qu’il faut avoir en soi et dans les autres.'),
+      WordItem(word: 'SECURITE', definition: 'Ce qui protège nos comptes et nos données.'),
+      WordItem(word: 'PAUSE', definition: 'Moment pour se reposer et souffler.'),
+      WordItem(word: 'FOCUS', definition: 'Se concentrer sur une seule chose.'),
+      WordItem(word: 'RESPIRE', definition: 'Ce qu’on fait pour se calmer quand on stresse.'),
+      WordItem(word: 'RESEAU', definition: 'Ensemble de personnes connectées entre elles.'),
+      WordItem(word: 'SOURCE', definition: 'Ce qu’il faut vérifier avant de croire une info.'),
+      WordItem(word: 'APPLI', definition: 'Programme sur téléphone (abréviation).'),
+      WordItem(word: 'TEMPS', definition: 'Ce qu’on passe souvent sur les écrans.'),
+      WordItem(word: 'ZEN', definition: 'Être calme et détendu.'),
+    ];
 
-  void _placeWord(CrosswordWord word) {
-    for (int i = 0; i < word.word.length; i++) {
-      int row = word.row + (word.isHorizontal ? 0 : i);
-      int col = word.col + (word.isHorizontal ? i : 0);
-      
-      if (row < 10 && col < 10) {
-        _isEditable[row][col] = true;
-        // Ne pas pré-remplir, laisser l'utilisateur saisir
+    // Deduplicate by word (case-insensitive)
+    final Set<String> seen = <String>{};
+    for (final w in raw) {
+      final key = w.word.trim().toUpperCase();
+      if (!seen.contains(key)) {
+        seen.add(key);
+        _allItems.add(w);
       }
     }
   }
 
-  void _onCellTap(int row, int col) {
-    if (!_isEditable[row][col] || _gameComplete) return;
-    
-    setState(() {
-      // Effacer la cellule pour permettre la saisie
-      _grid[row][col] = '';
-    });
-    
-    // Afficher le clavier pour saisie
-    _showInputDialog(row, col);
+  void _reshufflePool() {
+    _poolOrder = List<int>.generate(_allItems.length, (i) => i);
+    _poolOrder.shuffle(Random());
   }
 
-  void _showInputDialog(int row, int col) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        title: const Text(
-          'Saisir une lettre',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: TextField(
-          maxLength: 1,
-          textCapitalization: TextCapitalization.characters,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-          decoration: const InputDecoration(
-            hintText: 'A-Z',
-            hintStyle: TextStyle(color: Colors.white54),
-            border: OutlineInputBorder(),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: Colors.blueAccent, width: 2),
-            ),
-          ),
-          onChanged: (value) {
-            if (value.isNotEmpty) {
-              setState(() {
-                _grid[row][col] = value.toUpperCase();
-              });
-              Navigator.of(context).pop();
-              _checkWords();
-            }
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(color: Colors.white70),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _checkWords() {
-    int foundCount = 0;
-    
-    for (final word in _words) {
-      bool wordComplete = true;
-      String currentWord = '';
-      
-      for (int i = 0; i < word.word.length; i++) {
-        int row = word.row + (word.isHorizontal ? 0 : i);
-        int col = word.col + (word.isHorizontal ? i : 0);
-        
-        if (row < 10 && col < 10) {
-          String cellValue = _grid[row][col];
-          if (cellValue.isEmpty) {
-            wordComplete = false;
-            break;
-          }
-          currentWord += cellValue;
+  void _startTicker() {
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _elapsedSeconds += 1;
+        if (_elapsedSeconds % 8 == 0) {
+          _addStress(1); // +1 toutes les 8 secondes
         }
-      }
-      
-      if (wordComplete && currentWord == word.word) {
-        foundCount++;
-      }
-    }
-    
-    setState(() {
-      _wordsFound = foundCount;
+      });
     });
-    
-    if (foundCount == _words.length && !_gameComplete) {
-      _gameComplete = true;
-      _showCompletionDialog();
+  }
+
+  void _addStress(int delta) {
+    final int previous = _stress;
+    _stress = (_stress + delta).clamp(0, 100);
+    if (_stress >= 90 && previous < 90) {
+      _triggerShake();
+      // Micro-beep option intentionally skipped (no external deps)
     }
   }
 
-  void _showCompletionDialog() {
-    showDialog(
+  void _reduceStress(int delta) {
+    _stress = (_stress - delta).clamp(0, 100);
+  }
+
+  void _triggerShake() {
+    setState(() => _shake = true);
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      setState(() => _shake = false);
+    });
+  }
+
+  List<WordItem> get _filteredItems {
+    final String q = _query.trim().toLowerCase();
+    final Iterable<WordItem> base = _allItems.where((w) {
+      if (_hideUsed && w.used) return false;
+      if (q.isEmpty) return true;
+      final inWord = w.word.toLowerCase().contains(q);
+      final inDef = w.definition.toLowerCase().contains(q);
+      return inWord || inDef;
+    });
+    return base.toList();
+  }
+
+  bool get _allUsed => _allItems.every((w) => w.used);
+
+  Color get _stressColor {
+    if (_stress >= 70) return colorStressHigh;
+    if (_stress >= 40) return colorStressMid;
+    return colorStressLow;
+  }
+
+  String get _mmss {
+    final m = (_elapsedSeconds ~/ 60).toString().padLeft(2, '0');
+    final s = (_elapsedSeconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  void _onToggleUsed(int absoluteIndex, bool value) {
+    setState(() {
+      _allItems[absoluteIndex].used = value;
+      if (value) {
+        _reduceStress(6); // -6 quand coché
+        _pulseIndexes.add(absoluteIndex);
+        Future.delayed(const Duration(milliseconds: 260), () {
+          if (!mounted) return;
+          setState(() => _pulseIndexes.remove(absoluteIndex));
+        });
+        // Glow/halo cyan bref
+        _haloIndexes.add(absoluteIndex);
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (!mounted) return;
+          setState(() => _haloIndexes.remove(absoluteIndex));
+        });
+        // Haptique légère (si supporté)
+        HapticFeedback.lightImpact();
+        // Tip animé (bottom sheet queued)
+        _showAdviceFor(absoluteIndex);
+      }
+    });
+  }
+
+  void _showAdviceFor(int absoluteIndex) {
+    if (!mounted) return;
+    final String key = _allItems[absoluteIndex].word.trim().toUpperCase();
+    _enqueueTip(key);
+  }
+
+  // --- Tips bottom sheet queue ---
+  final Set<String> _shownTips = <String>{};
+  final Queue<String> _tipQueue = Queue<String>();
+  bool _isTipShowing = false;
+
+  void _enqueueTip(String wordKey) {
+    final String? advice = _adviceByWord[wordKey];
+    if (advice == null || advice.isEmpty) return;
+    if (_shownTips.contains(wordKey)) return; // éviter doublons
+    _shownTips.add(wordKey);
+    _tipQueue.add(wordKey);
+    _processTipQueue();
+  }
+
+  void _processTipQueue() {
+    if (!mounted) return;
+    if (_isTipShowing) return;
+    if (_tipQueue.isEmpty) return;
+    _isTipShowing = true;
+    final String wordKey = _tipQueue.removeFirst();
+    final String message = _adviceByWord[wordKey] ?? '';
+    _showTipCentered(wordKey, message).whenComplete(() {
+      if (!mounted) return;
+      _isTipShowing = false;
+      // Si d'autres tips en attente, afficher le suivant
+      Future.microtask(_processTipQueue);
+    });
+  }
+
+  Future<void> _closeCurrentSheetAfter(Duration duration) async {
+    await Future.delayed(duration);
+    if (!mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).maybePop();
+    }
+  }
+
+  Future<void> _ensureHaptic() async {
+    try {
+      await HapticFeedback.selectionClick();
+    } catch (_) {}
+  }
+
+  Future<void> _ensureHapticLight() async {
+    try {
+      await HapticFeedback.lightImpact();
+    } catch (_) {}
+  }
+
+  Future<void> _ensureHapticSuccess() async {
+    try {
+      await HapticFeedback.mediumImpact();
+    } catch (_) {}
+  }
+
+  Future<void> _ensureHapticWarning() async {
+    try {
+      await HapticFeedback.vibrate();
+    } catch (_) {}
+  }
+
+  Future<void> _ensureHapticHeavy() async {
+    try {
+      await HapticFeedback.heavyImpact();
+    } catch (_) {}
+  }
+
+  Future<void> _animatePulseController(AnimationController controller) async {
+    try {
+      await controller.forward();
+      await controller.reverse();
+    } catch (_) {}
+  }
+
+  Future<void> _showTipCentered(String wordKey, String message) async {
+    await _ensureHaptic();
+    if (!mounted) return;
+    return showGeneralDialog<void>(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        title: const Row(
-          children: [
-            Icon(Icons.emoji_events, color: Colors.amber, size: 32),
-            SizedBox(width: 12),
-            Text(
-              'Félicitations !',
-              style: TextStyle(color: Colors.white, fontSize: 24),
-            ),
-          ],
-        ),
-        content: const Text(
-          'Vous avez trouvé tous les mots RGPD !\n'
-          'Vous maîtrisez maintenant les concepts clés.',
-          style: TextStyle(color: Colors.white70, fontSize: 16),
-        ),
-        actions: [
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const Page4Tram()),
-              );
-            },
-            icon: const Icon(Icons.arrow_forward),
-            label: const Text('Continuer'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.greenAccent,
-              foregroundColor: Colors.white,
+      barrierDismissible: true,
+      barrierLabel: 'tip',
+      barrierColor: Colors.black.withOpacity(0.35),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim, secAnim) {
+        return const SizedBox.shrink();
+      },
+      transitionBuilder: (ctx, anim, secAnim, child) {
+        final curved = CurvedAnimation(parent: anim, curve: Curves.easeOut);
+        return Opacity(
+          opacity: curved.value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - curved.value) * 20),
+            child: Transform.scale(
+              scale: 0.98 + curved.value * 0.02,
+              child: Center(
+                child: _AnimatedTipCenter(title: wordKey, message: message),
+              ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  void _showDefinition(CrosswordWord word) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.black87,
-        title: Text(
-          word.word,
-          style: const TextStyle(
-            color: Colors.blueAccent,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          word.definition,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 16,
-            height: 1.4,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text(
-              'OK',
-              style: TextStyle(color: Colors.blueAccent),
-            ),
-          ),
-        ],
-      ),
-    );
+  void _onToggleDefinition(int absoluteIndex, bool shown) {
+    setState(() {
+      if (shown) {
+        _shownDefinitionIndexes.add(absoluteIndex);
+        if (!_seenDefinitionIndexes.contains(absoluteIndex)) {
+          _seenDefinitionIndexes.add(absoluteIndex);
+          _reduceStress(2); // -2 la première fois
+        }
+      } else {
+        _shownDefinitionIndexes.remove(absoluteIndex);
+      }
+    });
+  }
+
+  void _shuffle() {
+    setState(() {
+      final now = DateTime.now();
+      if (_lastShuffleTime != null &&
+          now.difference(_lastShuffleTime!).inSeconds < 10) {
+        _addStress(5); // pénalité si plusieurs fois en < 10s
+      }
+      _lastShuffleTime = now;
+
+      _allItems.shuffle(Random());
+    });
+  }
+
+  void _toggleShowAllDefinitions() {
+    setState(() {
+      _showAllDefinitions = !_showAllDefinitions;
+      if (_showAllDefinitions) {
+        // Mark all as shown (and first-time seen reductions only once)
+        for (int i = 0; i < _allItems.length; i++) {
+          _shownDefinitionIndexes.add(i);
+          if (!_seenDefinitionIndexes.contains(i)) {
+            _seenDefinitionIndexes.add(i);
+            _reduceStress(2);
+          }
+        }
+      } else {
+        _shownDefinitionIndexes.clear();
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Mots Fléchés RGPD'),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        actions: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    final ThemeData theme = ThemeData(
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: Colors.transparent,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: colorAccent,
+        brightness: Brightness.dark,
+        primary: colorAccent,
+      ),
+      textTheme: const TextTheme(
+        bodyMedium: TextStyle(color: colorText),
+        titleLarge: TextStyle(color: colorText, fontWeight: FontWeight.w700, letterSpacing: 0.6),
+      ),
+      useMaterial3: true,
+    );
+
+    return Theme(
+      data: theme,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment(-0.8, -1.0),
+            end: Alignment(0.8, 1.0),
+            colors: [colorBg1, colorBg2, colorBg3],
+          ),
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            title: const Text(
+              'Salle 3 — Liste des mots',
+              style: TextStyle(color: colorText, fontWeight: FontWeight.w700, letterSpacing: 0.6),
+            ),
+            actions: [
+              _ChronoBadge(timeText: _mmss),
+              const SizedBox(width: 12),
+            ],
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                const SizedBox.shrink(),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (_associationMode) {
+                        return _buildAssociationArea(constraints);
+                      }
+                      final items = _filteredItems;
+                      if (constraints.maxWidth > 1000) {
+                        return _buildGrid(items, 3);
+                      } else if (constraints.maxWidth > 700) {
+                        return _buildGrid(items, 2);
+                      }
+                      return _buildList(items);
+                    },
+                  ),
+                ),
+                _buildBottomProgressBar(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchAndActions() {
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildList(List<WordItem> items) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, i) {
+        final absoluteIndex = _allItems.indexOf(items[i]);
+        return _buildWordCard(items[i], absoluteIndex);
+      },
+    );
+  }
+
+  Widget _buildGrid(List<WordItem> items, int columns) {
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 3 / 2,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, i) {
+        final absoluteIndex = _allItems.indexOf(items[i]);
+        return _buildWordCard(items[i], absoluteIndex);
+      },
+    );
+  }
+
+  Widget _buildAssociationArea(BoxConstraints constraints) {
+    final bool wide = constraints.maxWidth > 900;
+    // Apply search filter to pool only
+    final String q = _query.trim().toLowerCase();
+    final List<int> filteredPool = [
+      for (final i in _poolOrder)
+        if (!_allItems[i].used && (q.isEmpty || _allItems[i].word.toLowerCase().contains(q) || _allItems[i].definition.toLowerCase().contains(q)))
+          i
+    ];
+
+    final Widget pool = _AssociationPanel(
+      title: 'Mots',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final i in filteredPool) _buildDraggableChip(i),
+            if (filteredPool.isEmpty)
+              const Text('Aucun mot', style: TextStyle(color: Colors.white70)),
+          ],
+        ),
+      ),
+    );
+
+    final Widget targets = _AssociationPanel(
+      title: 'Indices',
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: _allItems.length,
+        itemBuilder: (context, i) => _buildDropTarget(i),
+      ),
+    );
+
+    if (wide) {
+      return Row(
+        children: [
+          Expanded(child: pool),
+          const SizedBox(width: 12),
+          Expanded(child: targets),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        SizedBox(height: min(220, constraints.maxHeight * 0.35), child: pool),
+        const SizedBox(height: 12),
+        Expanded(child: targets),
+      ],
+    );
+  }
+
+  Widget _buildDraggableChip(int absoluteIndex) {
+    final item = _allItems[absoluteIndex];
+    final bool hovering = _hoverChipIndexes.contains(absoluteIndex);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoverChipIndexes.add(absoluteIndex)),
+      onExit: (_) => setState(() => _hoverChipIndexes.remove(absoluteIndex)),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 140),
+        scale: hovering ? 1.03 : 1.0,
+        curve: Curves.easeOut,
+        child: Draggable<int>(
+          data: absoluteIndex,
+          feedback: Material(
+            color: Colors.transparent,
+            child: _chipContent(item.word, dragging: true, glow: true),
+          ),
+          childWhenDragging: Opacity(
+            opacity: 0.3,
+            child: _chipContent(item.word),
+          ),
+          child: _chipContent(item.word, glow: hovering),
+        ),
+      ),
+    );
+  }
+
+  Widget _chipContent(String label, {bool dragging = false, bool glow = false}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: dragging ? colorAccent.withOpacity(0.25) : Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        boxShadow: glow
+            ? [
+                BoxShadow(
+                  color: colorAccent.withOpacity(0.25),
+                  blurRadius: 18,
+                  spreadRadius: 1,
+                ),
+              ]
+            : null,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: colorText, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _buildDropTarget(int targetIndex) {
+    final WordItem target = _allItems[targetIndex];
+    final bool matched = target.used;
+    final bool wrongFlash = _wrongFlashTargets.contains(targetIndex);
+    final bool halo = _haloIndexes.contains(targetIndex);
+    final bool hovering = _hoverTargetIndexes.contains(targetIndex);
+    final bool bouncing = _bounceTargets.contains(targetIndex);
+
+    final double scale = bouncing
+        ? 1.06
+        : (hovering ? 1.02 : 1.0);
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoverTargetIndexes.add(targetIndex)),
+      onExit: (_) => setState(() => _hoverTargetIndexes.remove(targetIndex)),
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOut,
+        scale: scale,
+        child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: matched
+            ? Colors.green.withOpacity(0.18)
+            : wrongFlash
+                ? Colors.red.withOpacity(0.14)
+                : Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: matched
+              ? Colors.greenAccent.withOpacity(0.7)
+              : wrongFlash
+                  ? Colors.redAccent.withOpacity(0.7)
+                  : Colors.white.withOpacity(0.08),
+        ),
+        boxShadow: halo
+            ? [
+                BoxShadow(
+                  color: _Page3WordsState.colorAccent.withOpacity(0.55),
+                  blurRadius: 24,
+                  spreadRadius: 1,
+                ),
+              ]
+            : (hovering
+                ? [
+                    BoxShadow(
+                      color: _Page3WordsState.colorAccent.withOpacity(0.18),
+                      blurRadius: 20,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null),
+      ),
+      child: DragTarget<int>(
+        builder: (context, candidateData, rejectedData) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      target.definition,
+                      style: const TextStyle(color: Colors.white70, height: 1.25),
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 150),
+                      child: matched
+                          ? Row(
+                              key: const ValueKey('matched'),
+                              children: const [
+                                Icon(Icons.check_circle, color: Colors.greenAccent, size: 18),
+                                SizedBox(width: 6),
+                                Text('Correct', style: TextStyle(color: Colors.greenAccent)),
+                              ],
+                            )
+                          : (candidateData.isNotEmpty)
+                              ? Row(
+                                  key: const ValueKey('hover'),
+                                  children: const [
+                                    Icon(Icons.file_download, color: colorAccent, size: 18),
+                                    SizedBox(width: 6),
+                                    Text('Relachez ici', style: TextStyle(color: colorAccent)),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 150),
+                child: matched
+                    ? _chipContent(target.word)
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          );
+        },
+        onWillAccept: (data) => !matched,
+        onAccept: (data) {
+          if (data == targetIndex) {
+            _onToggleUsed(targetIndex, true); // mark matched
+            // conseil déjà affiché dans _onToggleUsed
+          } else {
+            setState(() {
+              _wrongFlashTargets.add(targetIndex);
+              _bounceTargets.add(targetIndex);
+            });
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (!mounted) return;
+              setState(() {
+                _wrongFlashTargets.remove(targetIndex);
+                _bounceTargets.remove(targetIndex);
+              });
+            });
+          }
+        },
+      ),
+      ),
+      ),
+    );
+  }
+
+  Widget _buildWordCard(WordItem item, int absoluteIndex) {
+    final bool isShown = _showAllDefinitions || _shownDefinitionIndexes.contains(absoluteIndex);
+    final bool pulse = _pulseIndexes.contains(absoluteIndex);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: (pulse ? Colors.green.withOpacity(0.18) : Colors.white.withOpacity(0.06)),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 8),
+          ),
+        ],
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _onToggleDefinition(absoluteIndex, !isShown),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: AnimatedDefaultTextStyle(
+                      duration: const Duration(milliseconds: 180),
+                      style: TextStyle(
+                        color: item.used ? Colors.white70 : colorText,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                      child: Text(item.word),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'Marquer comme utilisé',
+                    child: Switch(
+                      value: item.used,
+                      onChanged: (v) => _onToggleUsed(absoluteIndex, v),
+                      activeColor: colorAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  _InfoToggleButton(
+                    isOpen: isShown,
+                    onTap: () => _onToggleDefinition(absoluteIndex, !isShown),
+                  ),
+                ],
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                child: ConstrainedBox(
+                  constraints: isShown
+                      ? const BoxConstraints()
+                      : const BoxConstraints(maxHeight: 0),
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: isShown ? 1 : 0,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        item.definition,
+                        style: const TextStyle(color: Colors.white70, height: 1.25),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomProgressBar() {
+    final int total = _allItems.length;
+    final int used = _allItems.where((w) => w.used).length;
+    final int remaining = total - used;
+    final double progress = total == 0 ? 0 : used / total;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.18),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: colorAccent.withOpacity(0.10),
+              blurRadius: 20,
+              spreadRadius: 1,
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$remaining / $total mots restants',
+                  style: const TextStyle(color: colorText, fontWeight: FontWeight.w600),
+                ),
+              ),
+              FilledButton(
+                onPressed: _allUsed
+                    ? () => Navigator.pushNamed(context, '/page4_dilemmas')
+                    : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: _allUsed ? Colors.greenAccent.shade400 : Colors.green.shade900,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('BoutonFinal3'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 10,
+              backgroundColor: Colors.white.withOpacity(0.08),
+              valueColor: AlwaysStoppedAnimation<Color>(colorAccent),
+            ),
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildStressBadge() {
+    final Widget chip = _StressChip(value: _stress, color: _stressColor);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      child: _shake
+          ? AnimatedSlide(
+              key: const ValueKey('shake'),
+              duration: const Duration(milliseconds: 500),
+              offset: const Offset(0.01, 0),
+              child: AnimatedScale(
+                duration: const Duration(milliseconds: 500),
+                scale: 1.02,
+                child: chip,
+              ),
+            )
+          : SizedBox(key: const ValueKey('steady'), child: chip),
+    );
+  }
+}
+
+class _ChronoBadge extends StatelessWidget {
+  const _ChronoBadge({required this.timeText});
+  final String timeText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.timer_outlined, size: 18, color: _Page3WordsState.colorAccent),
+          const SizedBox(width: 6),
+          Text(
+            timeText,
+            style: const TextStyle(
+              color: _Page3WordsState.colorText,
+              fontFeatures: [FontFeature.tabularFigures()],
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StressChip extends StatelessWidget {
+  const _StressChip({required this.value, required this.color});
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.whatshot_rounded, size: 18, color: color),
+          const SizedBox(width: 6),
+          Text(
+            '$value',
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionChipButton extends StatelessWidget {
+  const _ActionChipButton({required this.label, required this.icon, required this.onTap});
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.06),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: _Page3WordsState.colorAccent),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(color: _Page3WordsState.colorText, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoToggleButton extends StatelessWidget {
+  const _InfoToggleButton({required this.isOpen, required this.onTap});
+  final bool isOpen;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(isOpen ? 0.12 : 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Icon(
+            isOpen ? Icons.info : Icons.info_outline,
+            size: 18,
+            color: _Page3WordsState.colorAccent,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class _AssociationPanel extends StatelessWidget {
+  const _AssociationPanel({required this.title, required this.child});
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: _Page3WordsState.colorText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: Colors.white24),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnimatedTipCenter extends StatefulWidget {
+  const _AnimatedTipCenter({required this.title, required this.message});
+  final String title;
+  final String message;
+
+  @override
+  State<_AnimatedTipCenter> createState() => _AnimatedTipCenterState();
+}
+
+class _AnimatedTipCenterState extends State<_AnimatedTipCenter>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<double> _scale;
+  late final Animation<double> _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _scale = Tween<double>(begin: 0.98, end: 1.0)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _pulse = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart),
+    );
+    _controller.forward();
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: ScaleTransition(
+        scale: _scale,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF203A43),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.45),
+                blurRadius: 28,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: _Page3WordsState.colorAccent.withOpacity(0.12 + 0.08 * _pulse.value),
+                blurRadius: 32 + 8 * _pulse.value,
+                spreadRadius: 1 + 1 * _pulse.value,
+              ),
+            ],
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle, color: Colors.greenAccent, size: 20),
+                const Icon(Icons.tips_and_updates, color: _Page3WordsState.colorAccent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: const TextStyle(
+                          color: _Page3WordsState.colorText,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        widget.message,
+                        style: const TextStyle(
+                          color: _Page3WordsState.colorText,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Text(
-                  '$_wordsFound/${_words.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                InkWell(
+                  onTap: () => Navigator.of(context).maybePop(),
+                  borderRadius: BorderRadius.circular(10),
+                  child: const Padding(
+                    padding: EdgeInsets.all(6.0),
+                    child: Icon(Icons.close, color: Colors.white70),
                   ),
                 ),
               ],
             ),
           ),
-        ],
+          ),
+        ),
       ),
-      body: SafeArea(
-        child: AnimatedBuilder(
-          animation: _fadeAnimation,
-          builder: (context, child) {
-            return FadeTransition(
-              opacity: _fadeAnimation,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Instructions compactes
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blueAccent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.lightbulb, color: Colors.amber, size: 24),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Trouve les 10 mots RGPD. Clique sur une cellule pour saisir une lettre.',
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Contenu principal en Row
-                    Expanded(
-                      child: Row(
-                        children: [
-                          // Grille de mots fléchés
-                          Expanded(
-                            flex: 3,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withOpacity(0.2)),
-                              ),
-                              child: GridView.builder(
-                                padding: const EdgeInsets.all(8),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 10,
-                                  childAspectRatio: 1,
-                                  crossAxisSpacing: 2,
-                                  mainAxisSpacing: 2,
-                                ),
-                                itemCount: 100,
-                                itemBuilder: (context, index) {
-                                  int row = index ~/ 10;
-                                  int col = index % 10;
-                                  bool isEditable = _isEditable[row][col];
-                                  String cellValue = _grid[row][col];
-                                  
-                                  return GestureDetector(
-                                    onTap: () => _onCellTap(row, col),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: isEditable 
-                                          ? Colors.blueAccent.withOpacity(0.2)
-                                          : Colors.grey.withOpacity(0.1),
-                                        border: Border.all(
-                                          color: isEditable 
-                                            ? Colors.blueAccent.withOpacity(0.5)
-                                            : Colors.grey.withOpacity(0.3),
-                                          width: 1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(4),
-                                        boxShadow: isEditable && cellValue.isNotEmpty
-                                          ? [
-                                              BoxShadow(
-                                                color: Colors.greenAccent.withOpacity(0.3),
-                                                blurRadius: 4,
-                                                spreadRadius: 1,
-                                              ),
-                                            ]
-                                          : null,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          cellValue,
-                                          style: TextStyle(
-                                            color: cellValue.isNotEmpty 
-                                              ? Colors.white 
-                                              : Colors.white54,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          
-                          const SizedBox(width: 16),
-                          
-                          // Liste des définitions
-                          Expanded(
-                            flex: 2,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.white.withOpacity(0.2)),
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(12),
-                                        topRight: Radius.circular(12),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.list, color: Colors.blueAccent, size: 20),
-                                        const SizedBox(width: 8),
-                                        const Text(
-                                          'Définitions',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        Text(
-                                          '$_wordsFound/${_words.length}',
-                                          style: const TextStyle(
-                                            color: Colors.greenAccent,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: ListView.builder(
-                                      itemCount: _words.length,
-                                      itemBuilder: (context, index) {
-                                        final word = _words[index];
-                                        bool isFound = _isWordFound(word);
-                                        
-                                        return Container(
-                                          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: isFound 
-                                              ? Colors.greenAccent.withOpacity(0.2)
-                                              : Colors.transparent,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(
-                                              color: isFound 
-                                                ? Colors.greenAccent.withOpacity(0.5)
-                                                : Colors.transparent,
-                                            ),
-                                          ),
-                                          child: ListTile(
-                                            dense: true,
-                                            leading: Icon(
-                                              isFound ? Icons.check_circle : Icons.help_outline,
-                                              color: isFound ? Colors.greenAccent : Colors.white54,
-                                              size: 16,
-                                            ),
-                                            title: Text(
-                                              word.word,
-                                              style: TextStyle(
-                                                color: isFound ? Colors.greenAccent : Colors.white70,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                decoration: isFound ? TextDecoration.lineThrough : null,
-                                              ),
-                                            ),
-                                            subtitle: Text(
-                                              word.definition,
-                                              style: TextStyle(
-                                                color: isFound ? Colors.white70 : Colors.white54,
-                                                fontSize: 10,
-                                                height: 1.2,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            onTap: () => _showDefinition(word),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+    );
+  }
+}
+
+class _AnimatedTipSheet extends StatefulWidget {
+  const _AnimatedTipSheet({required this.title, required this.message});
+  final String title;
+  final String message;
+
+  @override
+  State<_AnimatedTipSheet> createState() => _AnimatedTipSheetState();
+}
+
+class _AnimatedTipSheetState extends State<_AnimatedTipSheet>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+      reverseDuration: const Duration(milliseconds: 220),
+    );
+    _opacity = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _offset = Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+    _controller.forward();
+    // Auto close after 3s
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: SlideTransition(
+          position: _offset,
+          child: FadeTransition(
+            opacity: _opacity,
+            child: _buildSheet(),
+          ),
         ),
       ),
     );
   }
 
-  bool _isWordFound(CrosswordWord word) {
-    String currentWord = '';
-    
-    for (int i = 0; i < word.word.length; i++) {
-      int row = word.row + (word.isHorizontal ? 0 : i);
-      int col = word.col + (word.isHorizontal ? i : 0);
-      
-      if (row < 10 && col < 10) {
-        String cellValue = _grid[row][col];
-        if (cellValue.isEmpty) return false;
-        currentWord += cellValue;
-      }
-    }
-    
-    return currentWord == word.word;
+  Widget _buildSheet() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF203A43),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+          // subtle cyan spotlight
+          BoxShadow(
+            color: _Page3WordsState.colorAccent.withOpacity(0.15),
+            blurRadius: 30,
+            spreadRadius: 2,
+          ),
+        ],
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.tips_and_updates, color: _Page3WordsState.colorAccent),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: _Page3WordsState.colorText,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.message,
+                    style: const TextStyle(
+                      color: _Page3WordsState.colorText,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: () => Navigator.of(context).maybePop(),
+              borderRadius: BorderRadius.circular(10),
+              child: const Padding(
+                padding: EdgeInsets.all(6.0),
+                child: Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-class CrosswordWord {
-  final String word;
-  final String definition;
-  final int row;
-  final int col;
-  final bool isHorizontal;
 
-  CrosswordWord({
-    required this.word,
-    required this.definition,
-    required this.row,
-    required this.col,
-    required this.isHorizontal,
-  });
-}

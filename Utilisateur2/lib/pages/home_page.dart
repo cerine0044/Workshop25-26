@@ -167,7 +167,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       children: [
                         _buildDebugButton('Page 1', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page1Puzzle()))),
                         _buildDebugButton('Page 2', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StressPage()))),
-                        _buildDebugButton('Page 3', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page3Crossword()))),
+                        _buildDebugButton('Page 3', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page3Words()))),
                         _buildDebugButton('Page 4', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page4Tram()))),
                         _buildDebugButton('Page 5', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page5Notifications()))),
                         _buildDebugButton('Success', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmSuccessPage()))),
