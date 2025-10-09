@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'page3_crossword.dart';
 import 'package:torch_light/torch_light.dart';
+import '../services/global_score_service.dart';
+import '../widgets/score_display_widget.dart';
 
 class StressPage extends StatefulWidget {
   const StressPage({super.key});
@@ -16,6 +18,8 @@ class StressPage extends StatefulWidget {
 }
 
 class _StressPageState extends State<StressPage> {
+  final GlobalScoreService _scoreService = GlobalScoreService();
+  
   StreamSubscription<AccelerometerEvent>? _accelSub;
   double _currentIntensity = 0.0; // 0..1 normalized "stress"
   double _peakIntensity = 0.0;
@@ -51,12 +55,14 @@ class _StressPageState extends State<StressPage> {
   @override
   void initState() {
     super.initState();
+    _scoreService.startPage('Stress');
     _startListening();
     _startUiTicker();
   }
 
   @override
   void dispose() {
+    _scoreService.endPage('Stress');
     _stopListening();
     super.dispose();
   }
@@ -145,6 +151,11 @@ class _StressPageState extends State<StressPage> {
       _elapsedMs = DateTime.now().difference(_startedAt).inMilliseconds;
       // Score scales with intensity; faster gain at higher intensity
       _score += _currentIntensity * 0.033; // ~ per frame seconds
+      
+      // Ajouter des points basés sur l'intensité
+      if (_currentIntensity > 0.5) {
+        _scoreService.addScore((_currentIntensity * 2).round(), 'Stress intense');
+      }
 
       // Update particles
       _updateParticles();
@@ -232,6 +243,10 @@ class _StressPageState extends State<StressPage> {
       appBar: AppBar(
         title: const Text('Salle 2 — Détecteur de stress'),
         backgroundColor: Colors.black,
+        actions: [
+          const ScoreDisplayWidget(compact: true),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         child: Listener(

@@ -7,7 +7,7 @@ import 'page3_crossword.dart';
 import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
-import 'room_management_page.dart';
+import 'working_multiplayer_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -171,7 +171,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _buildDebugButton('Page 4', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page4Tram()))),
                         _buildDebugButton('Page 5', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page5Notifications()))),
                         _buildDebugButton('Success', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmSuccessPage()))),
-                        _buildDebugButton('Rooms', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RoomManagementPage()))),
+                        _buildDebugButton('Multijoueur', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkingMultiplayerPage()))),
                       ],
                     ),
                   ],
@@ -211,7 +211,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           color: Colors.greenAccent,
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RoomManagementPage()),
+              MaterialPageRoute(builder: (_) => const WorkingMultiplayerPage()),
             );
           },
         ),

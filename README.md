@@ -1,94 +1,104 @@
-# 🎮 Pandora Box - Application Multijoueur
+# 🎮 Pandora Box - Projet Workshop25-26
 
-## 🚀 Démarrage Rapide
+## 📁 Structure du Projet (Nettoyée)
 
-### Une Seule Commande
-```bash
-dart run lancer_complet.dart
+### 🎯 **Projet Principal : Utilisateur2**
+
+Le dossier `Utilisateur2/` contient l'application Flutter web déployée et fonctionnelle.
+
+**🌐 Application Déployée :** https://pandora-d7a90.web.app
+
+### 📂 **Contenu du Dossier Utilisateur2**
+
+```
+Utilisateur2/
+├── lib/                    # Code source Flutter
+│   ├── main.dart          # Point d'entrée
+│   ├── firebase_options.dart # Configuration Firebase
+│   ├── pages/             # Pages de l'application
+│   │   ├── eco_stress_home_page.dart    # Page d'accueil
+│   │   ├── working_multiplayer_page.dart # Mode multijoueur
+│   │   ├── page1_puzzle.dart           # Jeu puzzle
+│   │   ├── page3_crossword.dart        # Mots croisés
+│   │   ├── page4_tram.dart             # Jeu du tram
+│   │   └── ... (autres pages de jeux)
+│   ├── services/          # Services
+│   │   ├── firebase_multiplayer_service.dart # Service multijoueur
+│   │   └── global_score_service.dart   # Gestion des scores
+│   └── widgets/           # Widgets réutilisables
+│       └── score_display_widget.dart
+├── assets/                # Ressources (images, sons)
+├── web/                   # Fichiers web
+├── build/                 # Build de production
+├── firebase.json          # Configuration Firebase Hosting
+├── pubspec.yaml           # Dépendances Flutter
+├── README.md              # Documentation du projet
+├── FIREBASE_SETUP_GUIDE.md # Guide de configuration Firebase
+└── CLEANUP_SUMMARY.md     # Résumé du nettoyage
 ```
 
-### URLs Disponibles
-- **Application** : http://localhost:8085
-- **API Backend** : http://localhost:5002
+## 🎮 **Fonctionnalités**
 
-## 📱 Processus d'Utilisation
+### ✅ **Mode Multijoueur**
+- Création de rooms avec codes
+- Rejoindre par code
+- Synchronisation temps réel via Firebase
+- Gestion des joueurs
+- Toggle ready/unready
+- Démarrage de jeu
 
-### Pour le Joueur 1 (Hôte)
-1. **Lancez l'application** : `dart run lancer_complet.dart`
-2. **Ouvrez** http://localhost:8085
-3. **Cliquez sur "Créer un salon"**
-4. **Entrez un nom** de salon
-5. **Cliquez sur "Créer"**
-6. **Partagez l'ID généré** avec le Joueur 2
+### 🎯 **Jeux Disponibles**
+- **Puzzle** : Énigmes complexes
+- **Mots Croisés** : Code secret
+- **Jeu du Tram** : Équilibre du système
+- **Détecteur de Stress** : Mesure du stress
+- **Notifications** : Gestion des alertes
 
-### Pour le Joueur 2
-1. **Connectez-vous au même WiFi**
-2. **Ouvrez** http://192.168.1.20:8085
-3. **Cliquez sur "Rejoindre"**
-4. **Entrez l'ID** reçu du Joueur 1
-5. **Cliquez sur "Rejoindre"**
-6. **Vous êtes connectés !** 🎉
+### 🏆 **Système de Scores**
+- Score global
+- Chronomètre
+- Page de résultats finaux
 
-## 🛠️ Commandes Utiles
+## 🚀 **Déploiement**
 
-### Démarrage
+### Local
 ```bash
-# Lancer l'application complète
-dart run lancer_complet.dart
-
-# Installer les dépendances
-flutter pub get
-
-# Vérifier l'état de Flutter
-flutter doctor
+cd Utilisateur2
+flutter run -d chrome --web-port=3000
 ```
 
-### Arrêt
+### Production
 ```bash
-# Arrêter tous les processus
-pkill -f "dart run"
-pkill -f "flutter run"
-
-# Ou utiliser Ctrl+C dans le terminal
+cd Utilisateur2
+flutter build web --release
+firebase deploy --only hosting
 ```
 
-### Dépannage
-```bash
-# Problème de port occupé
-lsof -ti:8085 | xargs kill -9
-lsof -ti:5002 | xargs kill -9
+## 🔥 **Configuration Firebase**
 
-# Redémarrage propre
-flutter clean
-flutter pub get
-dart run lancer_complet.dart
-```
+Pour activer le mode multijoueur, voir `Utilisateur2/FIREBASE_SETUP_GUIDE.md`
 
-## 📋 Fonctionnalités
+## 📊 **Statistiques du Nettoyage**
 
-- ✅ **Création de rooms** multijoueurs
-- ✅ **Rejoindre des rooms** existantes  
-- ✅ **Synchronisation temps réel** (toutes les 2 secondes)
-- ✅ **Interface moderne** et responsive
-- ✅ **Multi-plateforme** (Windows, macOS, Web)
+### ❌ **Fichiers Supprimés**
+- **25+ fichiers de test** supprimés
+- **8 fichiers serveur** supprimés
+- **10+ scripts shell** supprimés
+- **6 dossiers de plateforme** supprimés (android, ios, macos, linux, windows)
+- **Dossiers de build/cache** supprimés
+- **Documentation inutile** supprimée
 
-## 🌐 Architecture
+### ✅ **Fichiers Conservés**
+- **Dossier Utilisateur2** complet et fonctionnel
+- **README.md** principal
+- **Configuration Git** (.git/)
 
-- **Frontend** : Flutter Web
-- **Backend** : Dart HTTP Server  
-- **Communication** : HTTP REST API
-- **Synchronisation** : Polling (2 secondes)
+## 🎯 **Objectif**
 
-## 🎯 Plateformes Supportées
+Projet **nettoyé et optimisé** contenant uniquement l'application déployée et fonctionnelle.
 
-- ✅ **Windows** - Application native
-- ✅ **macOS** - Application native
-- ✅ **Web** - Application web
+---
 
-## 📞 Support
+**🎮 Application prête pour la production !**
 
-Si vous rencontrez des problèmes :
-1. Vérifiez que les deux PC sont sur le même réseau WiFi
-2. Testez l'API backend : http://192.168.1.20:5002
-3. Vérifiez les logs dans le terminal
-4. Redémarrez l'application si nécessaire
+**🌐 URL :** https://pandora-d7a90.web.app
