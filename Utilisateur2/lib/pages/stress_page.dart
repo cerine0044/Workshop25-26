@@ -7,8 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'page3_words.dart';
 import 'package:torch_light/torch_light.dart';
-import '../services/global_score_service.dart';
-import '../widgets/score_display_widget.dart';
+import '../services/game_stats_service.dart';
+import '../widgets/game_timer_widget.dart';
 
 class StressPage extends StatefulWidget {
   const StressPage({super.key});
@@ -18,7 +18,7 @@ class StressPage extends StatefulWidget {
 }
 
 class _StressPageState extends State<StressPage> {
-  final GlobalScoreService _scoreService = GlobalScoreService();
+  final GameStatsService _statsService = GameStatsService();
   
   StreamSubscription<AccelerometerEvent>? _accelSub;
   double _currentIntensity = 0.0; // 0..1 normalized "stress"
@@ -54,16 +54,24 @@ class _StressPageState extends State<StressPage> {
   @override
   void initState() {
     super.initState();
-    _scoreService.startPage('Stress');
+    _startGameSession();
     _startListening();
     _startUiTicker();
   }
 
   @override
   void dispose() {
-    _scoreService.endPage('Stress');
     _stopListening();
     super.dispose();
+  }
+
+  void _startGameSession() {
+    if (!_statsService.isSessionActive) {
+      _statsService.startGameSession(
+        playerName: 'Joueur Solo',
+        gameRoom: 'Détecteur de Stress',
+      );
+    }
   }
 
   void _startListening() {
@@ -243,7 +251,9 @@ class _StressPageState extends State<StressPage> {
       appBar: AppBar(
         title: const Text('Salle 2 — Détecteur de stress'),
         backgroundColor: Colors.black,
-        actions: [],
+        actions: [
+          const GameTimerWidget(),
+        ],
       ),
       body: SafeArea(
         child: Listener(
@@ -288,24 +298,6 @@ class _StressPageState extends State<StressPage> {
                               Color.lerp(Colors.deepPurple, Colors.red, _currentIntensity)!,
                             ],
                       stops: const [0.2, 0.65, 1.0],
-                    ),
-                  ),
-                ),
-                // Epilepsy warning bar
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    margin: const EdgeInsets.all(12),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.65),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.yellowAccent.withOpacity(0.9), width: 1.2),
-                    ),
-                    child: const Text(
-                      'Attention: effets lumineux pouvant déclencher une crise (épilepsie) — jouer prudemment',
-                      style: TextStyle(color: Colors.yellowAccent, fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
@@ -370,9 +362,20 @@ class _StressPageState extends State<StressPage> {
                                   ? 'Encore ${(math.max(0, (triggerThreshold - _currentIntensity) * 100)).toStringAsFixed(0)}%'
                                   : null,
                               onTap: _thresholdReached
-                                  ? () {
-                                      // Appeler le callback si fourni
-                                      Navigator.of(context).push(
+                                  ? () async {
+                                      // Terminer la session de stress
+                                      await _statsService.endGameSession(
+                                        completed: true,
+                                        score: (_currentIntensity * 100).round(),
+                                        additionalData: {
+                                          'peakIntensity': _peakIntensity,
+                                          'thresholdReached': _thresholdReached,
+                                          'calmMode': _calmMode,
+                                        },
+                                      );
+                                      
+                                      // Naviguer vers la page suivante
+                                      Navigator.of(context).pushReplacement(
                                         MaterialPageRoute(
                                           builder: (_) => const Page3Words(),
                                         ),
