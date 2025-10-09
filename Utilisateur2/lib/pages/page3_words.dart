@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/game_stats_service.dart';
+import '../services/solo_player_service.dart';
 import '../widgets/game_timer_widget.dart';
 import 'page4_tram.dart';
 
@@ -35,6 +36,7 @@ class Page3Words extends StatefulWidget {
 
 class _Page3WordsState extends State<Page3Words> {
   final GameStatsService _statsService = GameStatsService();
+  final SoloPlayerService _soloPlayerService = SoloPlayerService();
   
   // Palette
   // Pandora-like deep purple/blue gradient
@@ -123,11 +125,13 @@ class _Page3WordsState extends State<Page3Words> {
     super.dispose();
   }
 
-  void _startGameSession() {
+  void _startGameSession() async {
     if (!_statsService.isSessionActive) {
+      final playerName = await _soloPlayerService.getUniquePlayerName();
       _statsService.startGameSession(
-        playerName: 'Joueur Solo',
+        playerName: playerName,
         gameRoom: 'Mots Croisés',
+        gameMode: 'solo',
       );
     }
   }

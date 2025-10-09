@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/global_score_service.dart';
+import '../services/game_stats_service.dart';
 import 'page1_puzzle.dart';
 import 'stress_page.dart';
 import 'page3_words.dart';
@@ -10,6 +11,9 @@ import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'working_multiplayer_page.dart';
 import 'final_score_page.dart';
+import 'game_stats_page.dart';
+import 'global_scores_page.dart';
+import 'global_history_page.dart';
 
 class EcoStressHomePage extends StatefulWidget {
   const EcoStressHomePage({super.key});
@@ -714,6 +718,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                           const SizedBox(height: 12),
                           Column(
                             children: [
+                              // Bouton Mes Statistiques
                               Material(
                                 color: Colors.transparent,
                                 child: InkWell(
@@ -721,7 +726,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                                     HapticFeedback.lightImpact();
                                     Navigator.pop(context);
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (_) => const FinalScorePage()),
+                                      MaterialPageRoute(builder: (_) => const GameStatsPage()),
                                     );
                                   },
                                   borderRadius: BorderRadius.circular(8),
@@ -729,7 +734,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: [Colors.indigo.shade600, Colors.indigo.shade800],
+                                        colors: [Colors.purple.shade600, Colors.purple.shade800],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       ),
@@ -738,10 +743,92 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                                     child: const Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        Icon(Icons.bar_chart, color: Colors.white, size: 20),
+                                        Icon(Icons.analytics, color: Colors.white, size: 20),
                                         SizedBox(width: 8),
                                         Text(
-                                          'Voir mes scores',
+                                          'Mes Statistiques',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Bouton Scores Globaux
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    Navigator.pop(context);
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const GlobalScoresPage()),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Colors.amber.shade600, Colors.amber.shade800],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.emoji_events, color: Colors.white, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Scores Globaux',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Bouton Historique Global
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    Navigator.pop(context);
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const GlobalHistoryPage()),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Colors.orange.shade600, Colors.orange.shade800],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.history, color: Colors.white, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Historique Global',
                                           style: TextStyle(
                                             color: Colors.white,
                                             fontSize: 14,

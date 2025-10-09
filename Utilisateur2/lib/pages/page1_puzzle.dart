@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../services/game_stats_service.dart';
+import '../services/solo_player_service.dart';
 import '../widgets/game_timer_widget.dart';
 import 'stress_page.dart';
 
@@ -13,6 +14,7 @@ class Page1Puzzle extends StatefulWidget {
 
 class _Page1PuzzleState extends State<Page1Puzzle> {
   final GameStatsService _statsService = GameStatsService();
+  final SoloPlayerService _soloPlayerService = SoloPlayerService();
   
   bool _showHome = true;
   bool _won = false;
@@ -27,10 +29,12 @@ class _Page1PuzzleState extends State<Page1Puzzle> {
     _startGameSession();
   }
 
-  void _startGameSession() {
+  void _startGameSession() async {
+    final playerName = await _soloPlayerService.getUniquePlayerName();
     _statsService.startGameSession(
-      playerName: 'Joueur Solo',
+      playerName: playerName,
       gameRoom: 'Puzzle',
+      gameMode: 'solo',
     );
   }
 

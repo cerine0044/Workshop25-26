@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import '../services/game_stats_service.dart';
+import '../services/solo_player_service.dart';
 import '../widgets/game_timer_widget.dart';
 import 'page5_notifications.dart';
 
@@ -57,6 +58,7 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
   int _countExtreme = 0;
 
   final GameStatsService _statsService = GameStatsService();
+  final SoloPlayerService _soloPlayerService = SoloPlayerService();
 
   @override
   void initState() {
@@ -68,11 +70,13 @@ class _Page4TramState extends State<Page4Tram> with SingleTickerProviderStateMix
     _preflightAssets();
   }
 
-  void _startGameSession() {
+  void _startGameSession() async {
     if (!_statsService.isSessionActive) {
+      final playerName = await _soloPlayerService.getUniquePlayerName();
       _statsService.startGameSession(
-        playerName: 'Joueur Solo',
+        playerName: playerName,
         gameRoom: 'Dilemme du Tramway',
+        gameMode: 'solo',
       );
     }
   }

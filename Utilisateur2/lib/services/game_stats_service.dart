@@ -2,12 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'firebase_leaderboard_service.dart';
+import 'firebase_history_service.dart';
 
 /// Service de gestion des statistiques de jeu et du chronomètre
 class GameStatsService {
   static final GameStatsService _instance = GameStatsService._internal();
   factory GameStatsService() => _instance;
-  GameStatsService._internal();
 
   // Contrôleurs de chronomètre
   Timer? _timer;
@@ -17,19 +18,54 @@ class GameStatsService {
   // Statistiques de session
   String? _currentPlayerName;
   String? _currentGameRoom;
+  String? _currentGameMode; // 'solo' ou 'multiplayer'
   List<GameSession> _completedSessions = [];
   
   // Callbacks pour les mises à jour
   final List<VoidCallback> _durationListeners = [];
   final List<VoidCallback> _statsListeners = [];
+  
+  // Service de classement et historique
+  final FirebaseLeaderboardService _leaderboardService = FirebaseLeaderboardService();
+  final FirebaseHistoryService _historyService = FirebaseHistoryService();
+
+  /// Constructeur privé avec initialisation
+  GameStatsService._internal() {
+    // Initialisation immédiate des services
+    _initializeServicesSync();
+  }
+
+  /// Initialise les services Firebase de manière synchrone
+  void _initializeServicesSync() {
+    debugPrint('🔧 Initialisation synchrone des services Firebase...');
+    // L'initialisation sera faite lors du premier appel
+    debugPrint('✅ Services Firebase prêts pour l\'initialisation');
+  }
+
+  /// Initialise les services Firebase
+  Future<void> _initializeServices() async {
+    try {
+      debugPrint('🔧 Initialisation des services Firebase...');
+      await _leaderboardService.initialize();
+      debugPrint('✅ Service de classement initialisé');
+      await _historyService.initialize();
+      debugPrint('✅ Service d\'historique initialisé');
+      debugPrint('🔧 Services Firebase initialisés avec succès');
+    } catch (e) {
+      debugPrint('❌ Erreur initialisation services: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
+    }
+  }
 
   /// Démarre le chronomètre pour une nouvelle session de jeu
   void startGameSession({
     required String playerName,
     required String gameRoom,
+    String gameMode = 'solo', // 'solo' ou 'multiplayer'
   }) {
     _currentPlayerName = playerName;
     _currentGameRoom = gameRoom;
+    _currentGameMode = gameMode;
     _gameStartTime = DateTime.now();
     _currentGameDuration = Duration.zero;
     
@@ -61,6 +97,7 @@ class GameStatsService {
     final session = GameSession(
       playerName: _currentPlayerName!,
       gameRoom: _currentGameRoom!,
+      gameMode: _currentGameMode ?? 'solo',
       startTime: _gameStartTime!,
       endTime: DateTime.now(),
       duration: _currentGameDuration,
@@ -71,6 +108,12 @@ class GameStatsService {
 
     _completedSessions.add(session);
     await _saveStatsToStorage();
+
+    // Sauvegarder la session sur le serveur Firebase
+    await _saveSessionToServer(session);
+
+    // Mettre à jour le classement Firebase
+    await _updateLeaderboard(session);
     
     debugPrint('🏁 Session terminée: ${session.duration.inSeconds}s - Score: ${score ?? "N/A"}');
     
@@ -79,6 +122,7 @@ class GameStatsService {
     _currentGameDuration = Duration.zero;
     _currentPlayerName = null;
     _currentGameRoom = null;
+    _currentGameMode = null;
     
     _notifyStatsListeners();
   }
@@ -227,6 +271,109 @@ class GameStatsService {
     }
   }
 
+  /// Sauvegarde une session sur le serveur Firebase
+  Future<void> _saveSessionToServer(GameSession session) async {
+    try {
+      // Initialiser les services si nécessaire
+      await _initializeServices();
+      
+      final historySession = GameSessionHistory(
+        sessionId: '${session.playerName}_${session.startTime.millisecondsSinceEpoch}',
+        playerName: session.playerName,
+        gameRoom: session.gameRoom,
+        gameMode: session.gameMode,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        duration: session.duration,
+        completed: session.completed,
+        score: session.score,
+        additionalData: session.additionalData,
+      );
+
+      await _historyService.saveGameSession(historySession);
+      debugPrint('💾 Session sauvegardée sur le serveur: ${session.playerName}');
+    } catch (e) {
+      debugPrint('❌ Erreur sauvegarde session serveur: $e');
+    }
+  }
+
+  /// Met à jour le classement Firebase avec les nouvelles statistiques
+  Future<void> _updateLeaderboard(GameSession session) async {
+    try {
+      // Calculer les statistiques du joueur
+      final playerSessions = _completedSessions.where((s) => s.playerName == session.playerName).toList();
+      final totalSessions = playerSessions.length;
+      final completedSessions = playerSessions.where((s) => s.completed).length;
+
+      final scores = playerSessions.where((s) => s.score != null).map((s) => s.score!.toDouble()).toList();
+      final averageScore = scores.isNotEmpty ? scores.reduce((a, b) => a + b) / scores.length : 0.0;
+
+      final times = playerSessions.where((s) => s.completed).map((s) => s.duration).toList();
+      final bestTime = times.isNotEmpty ? times.reduce((a, b) => a < b ? a : b) : Duration.zero;
+
+      // Générer un ID unique pour le joueur basé sur son nom
+      final playerId = 'player_${session.playerName.hashCode}';
+
+      // Mettre à jour le classement
+      await _leaderboardService.updatePlayerStats(
+        playerId: playerId,
+        playerName: session.playerName,
+        totalSessions: totalSessions,
+        completedSessions: completedSessions,
+        averageScore: averageScore,
+        bestTime: bestTime,
+        isOnline: true,
+        gameMode: session.gameMode,
+      );
+
+      debugPrint('🏆 Classement mis à jour pour ${session.playerName}');
+    } catch (e) {
+      debugPrint('❌ Erreur mise à jour classement: $e');
+    }
+  }
+
+  /// Crée des données de test pour vérifier le fonctionnement
+  Future<void> createTestData() async {
+    try {
+      debugPrint('🧪 Création de données de test...');
+      
+      // Initialiser les services d'abord
+      await _initializeServices();
+      
+      final testSession = GameSessionHistory(
+        sessionId: 'test_${DateTime.now().millisecondsSinceEpoch}',
+        playerName: 'Joueur Test',
+        gameRoom: 'Puzzle',
+        gameMode: 'solo',
+        startTime: DateTime.now().subtract(const Duration(minutes: 5)),
+        endTime: DateTime.now(),
+        duration: const Duration(minutes: 5),
+        completed: true,
+        score: 100,
+        additionalData: {'test': true},
+      );
+
+      debugPrint('🧪 Sauvegarde de la session de test...');
+      await _historyService.saveGameSession(testSession);
+      debugPrint('✅ Session de test sauvegardée avec succès');
+      
+      // Attendre un peu pour la propagation
+      await Future.delayed(const Duration(seconds: 2));
+      
+      // Vérifier que la session a été sauvegardée
+      final sessions = await _historyService.getRecentSessions();
+      debugPrint('📊 Sessions récupérées: ${sessions.length}');
+      for (final session in sessions) {
+        debugPrint('  - ${session.playerName}: ${session.gameRoom} (${session.duration.inMinutes}m) - Mode: ${session.gameMode}');
+      }
+      
+      debugPrint('🧪 Données de test créées avec succès');
+    } catch (e) {
+      debugPrint('❌ Erreur création données test: $e');
+      debugPrint('❌ Stack trace: ${StackTrace.current}');
+    }
+  }
+
   /// Libère les ressources
   void dispose() {
     _timer?.cancel();
@@ -239,6 +386,7 @@ class GameStatsService {
 class GameSession {
   final String playerName;
   final String gameRoom;
+  final String gameMode; // 'solo' ou 'multiplayer'
   final DateTime startTime;
   final DateTime endTime;
   final Duration duration;
@@ -249,6 +397,7 @@ class GameSession {
   GameSession({
     required this.playerName,
     required this.gameRoom,
+    required this.gameMode,
     required this.startTime,
     required this.endTime,
     required this.duration,
@@ -261,6 +410,7 @@ class GameSession {
     return {
       'playerName': playerName,
       'gameRoom': gameRoom,
+      'gameMode': gameMode,
       'startTime': startTime.toIso8601String(),
       'endTime': endTime.toIso8601String(),
       'duration': duration.inMilliseconds,
@@ -274,6 +424,7 @@ class GameSession {
     return GameSession(
       playerName: json['playerName'],
       gameRoom: json['gameRoom'],
+      gameMode: json['gameMode'] ?? 'solo', // Par défaut solo pour compatibilité
       startTime: DateTime.parse(json['startTime']),
       endTime: DateTime.parse(json['endTime']),
       duration: Duration(milliseconds: json['duration']),

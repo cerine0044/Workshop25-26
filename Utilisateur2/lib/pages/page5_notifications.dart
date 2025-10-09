@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../services/game_stats_service.dart';
+import '../services/solo_player_service.dart';
 import '../services/global_score_service.dart';
 import '../widgets/game_timer_widget.dart';
 import 'page5_success.dart';
@@ -19,6 +20,7 @@ class _Page5NotificationsState extends State<Page5Notifications>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fxController;
   final GameStatsService _statsService = GameStatsService();
+  final SoloPlayerService _soloPlayerService = SoloPlayerService();
   final GlobalScoreService _scoreService = GlobalScoreService();
 
   // Fullscreen popup alerts (stacked). Closing one reduces noise.
@@ -86,11 +88,13 @@ class _Page5NotificationsState extends State<Page5Notifications>
     _initialTotal = _popups.length;
   }
 
-  void _startGameSession() {
+  void _startGameSession() async {
     if (!_statsService.isSessionActive) {
+      final playerName = await _soloPlayerService.getUniquePlayerName();
       _statsService.startGameSession(
-        playerName: 'Joueur Solo',
+        playerName: playerName,
         gameRoom: 'Gestion des Notifications',
+        gameMode: 'solo',
       );
     }
   }
