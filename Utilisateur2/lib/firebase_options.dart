@@ -44,36 +44,36 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAzPN6G39XhgXKMK6C7DvuebG0pd_WeKz4',
-    appId: '1:126460334259:web:db5a3c520c1f866ab060c6',
-    messagingSenderId: '126460334259',
-    projectId: 'pandora-d7a90',
-    authDomain: 'pandora-d7a90.firebaseapp.com',
-    databaseURL: 'https://pandora-d7a90-default-rtdb.europe-west1.firebasedatabase.app',
-    storageBucket: 'pandora-d7a90.firebasestorage.app',
+    apiKey: 'AIzaSyAUxg49zSnarmKRkuAQFG6dBhTiCcy2AMo',
+    appId: '1:519180282303:web:57de096e5374398fc8190a',
+    messagingSenderId: '519180282303',
+    projectId: 'pandora-box-user2',
+    authDomain: 'pandora-box-user2.firebaseapp.com',
+    databaseURL: 'https://pandora-box-user2-default-rtdb.firebaseio.com',
+    storageBucket: 'pandora-box-user2.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAzPN6G39XhgXKMK6C7DvuebG0pd_WeKz4', // Utilise la même clé API pour l'instant
-    appId: '1:126460334259:android:PLACEHOLDER', // À remplacer quand vous ajouterez l'app Android
-    messagingSenderId: '126460334259',
-    projectId: 'pandora-d7a90',
-    databaseURL: 'https://pandora-d7a90-default-rtdb.europe-west1.firebasedatabase.app',
+    apiKey: 'AIzaSyAUxg49zSnarmKRkuAQFG6dBhTiCcy2AMo',
+    appId: '1:519180282303:android:PLACEHOLDER', // À remplacer quand vous ajouterez l'app Android
+    messagingSenderId: '519180282303',
+    projectId: 'pandora-box-user2',
+    databaseURL: 'https://pandora-box-user2-default-rtdb.firebaseio.com',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAzPN6G39XhgXKMK6C7DvuebG0pd_WeKz4', // Utilise la même clé API pour l'instant
-    appId: '1:126460334259:ios:PLACEHOLDER', // À remplacer quand vous ajouterez l'app iOS
-    messagingSenderId: '126460334259',
-    projectId: 'pandora-d7a90',
-    databaseURL: 'https://pandora-d7a90-default-rtdb.europe-west1.firebasedatabase.app',
+    apiKey: 'AIzaSyAUxg49zSnarmKRkuAQFG6dBhTiCcy2AMo',
+    appId: '1:519180282303:ios:PLACEHOLDER', // À remplacer quand vous ajouterez l'app iOS
+    messagingSenderId: '519180282303',
+    projectId: 'pandora-box-user2',
+    databaseURL: 'https://pandora-box-user2-default-rtdb.firebaseio.com',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAzPN6G39XhgXKMK6C7DvuebG0pd_WeKz4', // Utilise la même clé API pour l'instant
-    appId: '1:126460334259:ios:PLACEHOLDER', // À remplacer quand vous ajouterez l'app macOS
-    messagingSenderId: '126460334259',
-    projectId: 'pandora-d7a90',
-    databaseURL: 'https://pandora-d7a90-default-rtdb.europe-west1.firebasedatabase.app',
+    apiKey: 'AIzaSyAUxg49zSnarmKRkuAQFG6dBhTiCcy2AMo',
+    appId: '1:519180282303:ios:PLACEHOLDER', // À remplacer quand vous ajouterez l'app macOS
+    messagingSenderId: '519180282303',
+    projectId: 'pandora-box-user2',
+    databaseURL: 'https://pandora-box-user2-default-rtdb.firebaseio.com',
   );
 }

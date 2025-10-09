@@ -3,11 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'page1_puzzle.dart';
 import 'stress_page.dart';
-import 'page3_crossword.dart';
+import 'page3_words.dart';
 import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
-import 'working_multiplayer_page.dart';
+import 'firebase_admin_panel.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -167,11 +167,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       children: [
                         _buildDebugButton('Page 1', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page1Puzzle()))),
                         _buildDebugButton('Page 2', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StressPage()))),
-                        _buildDebugButton('Page 3', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page3Crossword()))),
+                        _buildDebugButton('Page 3', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page3Words()))),
                         _buildDebugButton('Page 4', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page4Tram()))),
                         _buildDebugButton('Page 5', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page5Notifications()))),
                         _buildDebugButton('Success', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmSuccessPage()))),
-                        _buildDebugButton('Multijoueur', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkingMultiplayerPage()))),
+                        _buildDebugButton('Admin Firebase', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FirebaseAdminPanel()))),
                       ],
                     ),
                   ],

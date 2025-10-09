@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'page3_crossword.dart';
+import 'page3_words.dart';
 import 'package:torch_light/torch_light.dart';
 import '../services/global_score_service.dart';
 import '../widgets/score_display_widget.dart';
@@ -388,7 +388,7 @@ class _StressPageState extends State<StressPage> {
                                       // Appeler le callback si fourni
                                       Navigator.of(context).push(
                                         MaterialPageRoute(
-                                          builder: (_) => const Page3Crossword(),
+                                          builder: (_) => const Page3Words(),
                                         ),
                                       );
                                     }

@@ -104,7 +104,7 @@ class FirebaseMultiplayerService {
   Future<String> createRoom({
     required String name,
     String? description,
-    int maxPlayers = 6,
+    int maxPlayers = 2,
   }) async {
     if (!_isInitialized) {
       throw Exception('Service non initialisé');
@@ -145,7 +145,7 @@ class FirebaseMultiplayerService {
       _listenToRoom(roomId);
       
       print('✅ Room créée dans Firebase: $name ($roomCode)');
-      return roomId;
+      return roomCode;
       
     } catch (e) {
       print('❌ Erreur création room Firebase: $e');
@@ -153,37 +153,56 @@ class FirebaseMultiplayerService {
     }
   }
 
-  Future<void> joinRoom(String roomId) async {
+  Future<void> joinRoom(String roomCode) async {
     if (!_isInitialized) {
       throw Exception('Service non initialisé');
     }
 
     try {
-      print('🚪 Tentative de rejoindre room: $roomId');
+      print('🚪 Tentative de rejoindre room avec code: $roomCode');
       
-      final roomRef = _database!.ref('rooms/$roomId');
-      final snapshot = await roomRef.get();
+      // Rechercher la room par code
+      final roomsRef = _database!.ref('rooms');
+      final snapshot = await roomsRef.get();
       
       if (!snapshot.exists) {
-        throw Exception('Room introuvable');
+        throw Exception('Aucune room trouvée');
       }
       
-      final roomData = _convertToMap(snapshot.value);
-      if (roomData == null) {
-        throw Exception('Erreur de lecture des données de la room');
+      final roomsData = _convertToMap(snapshot.value);
+      if (roomsData == null) {
+        throw Exception('Erreur de lecture des données des rooms');
       }
       
-      final players = _convertToMap(roomData['players']) ?? {};
+      String? foundRoomId;
+      Map<String, dynamic>? foundRoomData;
+      
+      // Chercher la room avec le bon code
+      roomsData.forEach((roomId, roomData) {
+        final room = _convertToMap(roomData);
+        if (room != null && room['code'] == roomCode) {
+          foundRoomId = roomId;
+          foundRoomData = room;
+        }
+      });
+      
+      if (foundRoomId == null || foundRoomData == null) {
+        throw Exception('Room avec le code $roomCode introuvable');
+      }
+      
+      final roomRef = _database!.ref('rooms/$foundRoomId');
+      final players = _convertToMap(foundRoomData!['players']) ?? {};
       
       // Vérifier si la room est pleine
-      if (players.length >= (roomData['maxPlayers'] ?? 6)) {
+      if (players.length >= (foundRoomData!['maxPlayers'] ?? 2)) {
         throw Exception('Room pleine');
       }
       
       // Vérifier si le joueur n'est pas déjà dans la room
       if (players.containsKey(_currentPlayerId)) {
-        _currentRoomId = roomId;
-        _listenToRoom(roomId);
+        _currentRoomId = foundRoomId!;
+        _listenToRoom(foundRoomId!);
+        print('✅ Joueur déjà dans la room');
         return;
       }
       
@@ -203,10 +222,10 @@ class FirebaseMultiplayerService {
         'lastActivity': DateTime.now().toIso8601String(),
       });
       
-      _currentRoomId = roomId;
-      _listenToRoom(roomId);
+      _currentRoomId = foundRoomId!;
+      _listenToRoom(foundRoomId!);
       
-      print('✅ Rejoint room Firebase: $roomId');
+      print('✅ Rejoint room Firebase: $foundRoomId (code: $roomCode)');
       
     } catch (e) {
       print('❌ Erreur rejoindre room Firebase: $e');
@@ -483,10 +502,61 @@ class FirebaseMultiplayerService {
     }
   }
 
-  void dispose() {
-    _roomSubscription?.cancel();
-    _availableRoomsSubscription?.cancel();
-    _roomStateController?.close();
-    _availableRoomsController?.close();
+  Future<void> updatePlayerName(String newName) async {
+    if (!_isInitialized || _currentPlayerId == null) {
+      throw Exception('Service non initialisé ou joueur non connecté');
+    }
+
+    try {
+      _currentPlayerName = newName;
+      
+      // Mettre à jour le nom dans la room si on est dans une room
+      if (_currentRoomId != null) {
+        final roomRef = _database!.ref('rooms/$_currentRoomId');
+        final snapshot = await roomRef.get();
+        
+        if (snapshot.exists) {
+          final roomData = _convertToMap(snapshot.value);
+          if (roomData != null) {
+            final players = _convertToMap(roomData['players']) ?? {};
+            
+            if (players.containsKey(_currentPlayerId)) {
+              players[_currentPlayerId]['name'] = newName;
+              
+              await roomRef.update({
+                'players': players,
+                'lastActivity': DateTime.now().toIso8601String(),
+              });
+              
+              print('✅ Nom du joueur mis à jour: $newName');
+            }
+          }
+        }
+      }
+      
+    } catch (e) {
+      print('❌ Erreur mise à jour nom joueur: $e');
+      throw Exception('Erreur lors de la mise à jour du nom: $e');
+    }
+  }
+
+  Future<void> sendMessage(String message) async {
+    if (_currentRoomId == null || !_isInitialized) return;
+
+    try {
+      final messageData = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'playerId': _currentPlayerId,
+        'playerName': _currentPlayerName,
+        'message': message,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      await _database!.ref('rooms/$_currentRoomId/messages').push().set(messageData);
+      print('✅ Message envoyé: $message');
+      
+    } catch (e) {
+      print('❌ Erreur envoi message: $e');
+    }
   }
 }

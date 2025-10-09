@@ -6,7 +6,7 @@ import '../services/global_score_service.dart';
 import '../widgets/score_display_widget.dart';
 import 'page1_puzzle.dart';
 import 'stress_page.dart';
-import 'page3_crossword.dart';
+import 'page3_words.dart';
 import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
@@ -676,7 +676,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                     
                     _buildGameOption('Mots Croisés', Icons.grid_on, Colors.green, () {
                       Navigator.pop(context);
-                      _navigateToPage('Mots Croisés', const Page3Crossword());
+                      _navigateToPage('Mots Croisés', const Page3Words());
                     }),
                     
                     _buildGameOption('Jeu du Tram', Icons.train, Colors.orange, () {

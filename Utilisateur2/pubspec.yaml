@@ -39,9 +39,9 @@ dependencies:
   audioplayers: ^6.1.0
   
   # Firebase dependencies
-  firebase_core: ^3.6.0
-  firebase_database: ^11.1.0
-  firebase_auth: ^5.3.1
+  firebase_core: ^3.15.2
+  firebase_database: ^11.3.10
+  firebase_auth: ^5.7.0
 
 dev_dependencies:
   flutter_test:
@@ -65,7 +65,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Assets locaux pour images/sons
-  assets:
-    - assets/images/
-    - assets/sounds/
+  # Assets locaux pour images/sons (temporairement désactivés)
+  # assets:
+  #   - assets/images/
+  #   - assets/sounds/
