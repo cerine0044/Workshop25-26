@@ -248,23 +248,6 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
             ),
           ),
           
-          // Widget de score avec animation
-          Positioned(
-            top: 20,
-            right: 20,
-            child: AnimatedBuilder(
-              animation: _fadeAnimation,
-              builder: (context, child) {
-                return Transform.translate(
-                  offset: Offset(0, 50 * (1 - _fadeAnimation.value)),
-                  child: Opacity(
-                    opacity: _fadeAnimation.value,
-                    child: const ScoreDisplayWidget(compact: true),
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
@@ -562,25 +545,6 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                   
                   const SizedBox(height: 16),
                   
-                  Text(
-                    '📝 Consultez la documentation pour activer le multijoueur',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  Text(
-                    '📱 Installez l\'app pour jouer hors-ligne !',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
                 ],
               ),
             ),
@@ -1018,6 +982,8 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       MaterialPageRoute(builder: (_) => page),
     ).then((_) {
       _scoreService.endPage(pageName);
+      // Réinitialiser le chrono quand on revient d'une page solo
+      _resetTimer();
     });
   }
   
@@ -1034,6 +1000,12 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     _stressTimer?.cancel();
     _glitchTimer?.cancel();
     super.dispose();
+  }
+  
+  // Méthode pour réinitialiser le chrono quand on quitte le mode solo
+  void _resetTimer() {
+    _scoreService.resetSession();
+    _scoreService.startSession();
   }
 }
 

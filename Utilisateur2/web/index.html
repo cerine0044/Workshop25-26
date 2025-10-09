@@ -134,7 +134,8 @@
       font-family: 'Roboto', sans-serif;
     }
     
-    /* Connection status */
+    /* Connection status - Removed */
+    /*
     .connection-status {
       position: fixed;
       top: 20px;
@@ -155,6 +156,7 @@
       background-color: #dc3545;
       color: white;
     }
+    */
   </style>
 </head>
 <body>
@@ -164,16 +166,17 @@
     <div>Chargement de Pandora Box...</div>
   </div>
   
-  <!-- Connection status indicator -->
-  <div id="connection-status" class="connection-status connection-offline" style="display: none;">
+  <!-- Connection status indicator - Hidden -->
+  <!-- <div id="connection-status" class="connection-status connection-offline" style="display: none;">
     <span id="connection-text">Hors ligne</span>
-  </div>
+  </div> -->
   
   <!-- Error message container -->
   <div id="error-container"></div>
 
   <script>
-    // Connection status monitoring
+    // Connection status monitoring - Disabled
+    /*
     function updateConnectionStatus() {
       const statusElement = document.getElementById('connection-status');
       const textElement = document.getElementById('connection-text');
@@ -193,6 +196,7 @@
     window.addEventListener('online', updateConnectionStatus);
     window.addEventListener('offline', updateConnectionStatus);
     updateConnectionStatus();
+    */
     
     // Error handling - Improved version
     window.addEventListener('error', function(e) {

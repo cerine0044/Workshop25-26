@@ -42,11 +42,10 @@ class _StressPageState extends State<StressPage> {
   DateTime _lastActivityAt = DateTime.now();
   Timer? _webTicker;
 
-  // Game timer / score
+  // Game timer (plus de score)
   final DateTime _startedAt = DateTime.now();
   Timer? _uiTicker; // drives particles and timer repaint
   int _elapsedMs = 0;
-  double _score = 0.0; // accumulate intensity over time
 
   // Particles
   final List<_Particle> _particles = <_Particle>[];
@@ -150,12 +149,13 @@ class _StressPageState extends State<StressPage> {
       // Update timer
       _elapsedMs = DateTime.now().difference(_startedAt).inMilliseconds;
       // Score scales with intensity; faster gain at higher intensity
-      _score += _currentIntensity * 0.033; // ~ per frame seconds
+      // Plus de score - seulement le timer
+      // _score += _currentIntensity * 0.033; // ~ per frame seconds
       
-      // Ajouter des points basés sur l'intensité
-      if (_currentIntensity > 0.5) {
-        _scoreService.addScore((_currentIntensity * 2).round(), 'Stress intense');
-      }
+      // Ajouter des points basés sur l'intensité (supprimé - plus de score)
+      // if (_currentIntensity > 0.5) {
+      //   _scoreService.addScore((_currentIntensity * 2).round(), 'Stress intense');
+      // }
 
       // Update particles
       _updateParticles();
@@ -243,10 +243,7 @@ class _StressPageState extends State<StressPage> {
       appBar: AppBar(
         title: const Text('Salle 2 — Détecteur de stress'),
         backgroundColor: Colors.black,
-        actions: [
-          const ScoreDisplayWidget(compact: true),
-          const SizedBox(width: 8),
-        ],
+        actions: [],
       ),
       body: SafeArea(
         child: Listener(
@@ -340,17 +337,6 @@ class _StressPageState extends State<StressPage> {
                   ),
                 ),
 
-                // HUD: score
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _HudChip(
-                    icon: Icons.stacked_line_chart,
-                    label: 'Score ${(1000 * _score).round()}',
-                  ),
-                ),
-
-                
 
                 // Bottom status + animated unlock button
                 Align(

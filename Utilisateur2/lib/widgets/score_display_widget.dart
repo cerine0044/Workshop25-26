@@ -2,41 +2,37 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/global_score_service.dart';
 
-class ScoreDisplayWidget extends StatefulWidget {
-  final bool showPageScore;
-  final bool showTimer;
+class TimerDisplayWidget extends StatefulWidget {
+  final bool showPageTimer;
   final bool compact;
   
-  const ScoreDisplayWidget({
+  const TimerDisplayWidget({
     super.key,
-    this.showPageScore = true,
-    this.showTimer = true,
+    this.showPageTimer = true,
     this.compact = false,
   });
 
   @override
-  State<ScoreDisplayWidget> createState() => _ScoreDisplayWidgetState();
+  State<TimerDisplayWidget> createState() => _TimerDisplayWidgetState();
 }
 
-class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
+class _TimerDisplayWidgetState extends State<TimerDisplayWidget>
     with TickerProviderStateMixin {
   
   final GlobalScoreService _scoreService = GlobalScoreService();
   late AnimationController _pulseController;
-  late AnimationController _glowController;
   late Animation<double> _pulseAnimation;
-  late Animation<double> _glowAnimation;
   
-  GlobalScore? _currentScore;
+  SessionInfo? _currentSession;
   Duration _currentDuration = Duration.zero;
-  StreamSubscription<GlobalScore>? _scoreSubscription;
+  StreamSubscription<SessionInfo>? _sessionSubscription;
   StreamSubscription<Duration>? _timerSubscription;
   
   @override
   void initState() {
     super.initState();
     _initializeAnimations();
-    _subscribeToScoreUpdates();
+    _subscribeToUpdates();
   }
   
   void _initializeAnimations() {
@@ -45,11 +41,6 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
       vsync: this,
     )..repeat(reverse: true);
     
-    _glowController = AnimationController(
-      duration: const Duration(seconds: 3),
-      vsync: this,
-    )..repeat();
-    
     _pulseAnimation = Tween<double>(
       begin: 0.95,
       end: 1.05,
@@ -57,35 +48,25 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
       parent: _pulseController,
       curve: Curves.easeInOut,
     ));
-    
-    _glowAnimation = Tween<double>(
-      begin: 0.3,
-      end: 0.8,
-    ).animate(CurvedAnimation(
-      parent: _glowController,
-      curve: Curves.easeInOut,
-    ));
   }
   
-  void _subscribeToScoreUpdates() {
-    _scoreSubscription = _scoreService.scoreStream.listen((score) {
+  void _subscribeToUpdates() {
+    _sessionSubscription = _scoreService.sessionStream.listen((session) {
       setState(() {
-        _currentScore = score;
+        _currentSession = session;
       });
     });
     
-    if (widget.showTimer) {
-      _timerSubscription = _scoreService.timerStream.listen((duration) {
-        setState(() {
-          _currentDuration = duration;
-        });
+    _timerSubscription = _scoreService.timerStream.listen((duration) {
+      setState(() {
+        _currentDuration = duration;
       });
-    }
+    });
   }
   
   @override
   Widget build(BuildContext context) {
-    if (_currentScore == null) {
+    if (_currentSession == null) {
       return const SizedBox.shrink();
     }
     
@@ -114,28 +95,16 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildScoreIcon(),
+          _buildTimerIcon(),
           const SizedBox(width: 8),
           Text(
-            '${_currentScore!.totalScore}',
+            _formatDuration(_currentDuration),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-          if (widget.showTimer) ...[
-            const SizedBox(width: 12),
-            _buildTimerIcon(),
-            const SizedBox(width: 4),
-            Text(
-              _formatDuration(_currentDuration),
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -169,14 +138,10 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildScoreSection(),
-                if (widget.showPageScore) ...[
+                _buildTimerSection(),
+                if (widget.showPageTimer) ...[
                   const SizedBox(height: 12),
-                  _buildPageScoreSection(),
-                ],
-                if (widget.showTimer) ...[
-                  const SizedBox(height: 12),
-                  _buildTimerSection(),
+                  _buildPageTimerSection(),
                 ],
               ],
             ),
@@ -186,53 +151,46 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
     );
   }
   
-  Widget _buildScoreSection() {
-    return AnimatedBuilder(
-      animation: _glowAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.blue.withOpacity(_glowAnimation.value),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+  Widget _buildTimerSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildTimerIcon(),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildScoreIcon(),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'SCORE TOTAL',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    '${_currentScore!.totalScore}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              const Text(
+                'TEMPS TOTAL',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Text(
+                _formatDuration(_currentDuration),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
   
-  Widget _buildPageScoreSection() {
+  Widget _buildPageTimerSection() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -250,7 +208,7 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
           ),
           const SizedBox(width: 6),
           Text(
-            'Page: ${_currentScore!.currentPageScore}',
+            'Page: ${_formatDuration(_currentSession!.currentPageDuration)}',
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 12,
@@ -258,59 +216,21 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
           ),
         ],
       ),
-    );
-  }
-  
-  Widget _buildTimerSection() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTimerIcon(),
-          const SizedBox(width: 6),
-          Text(
-            _formatDuration(_currentDuration),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildScoreIcon() {
-    return AnimatedBuilder(
-      animation: _glowAnimation,
-      builder: (context, child) {
-        return Container(
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(_glowAnimation.value * 0.3),
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: const Icon(
-            Icons.star,
-            color: Colors.yellow,
-            size: 16,
-          ),
-        );
-      },
     );
   }
   
   Widget _buildTimerIcon() {
-    return const Icon(
-      Icons.timer,
-      color: Colors.white70,
-      size: 14,
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Icon(
+        Icons.timer,
+        color: Colors.cyan,
+        size: 16,
+      ),
     );
   }
   
@@ -323,147 +243,8 @@ class _ScoreDisplayWidgetState extends State<ScoreDisplayWidget>
   @override
   void dispose() {
     _pulseController.dispose();
-    _glowController.dispose();
-    _scoreSubscription?.cancel();
+    _sessionSubscription?.cancel();
     _timerSubscription?.cancel();
-    super.dispose();
-  }
-}
-
-class FloatingScoreWidget extends StatefulWidget {
-  final int points;
-  final String reason;
-  final Duration duration;
-  
-  const FloatingScoreWidget({
-    super.key,
-    required this.points,
-    required this.reason,
-    this.duration = const Duration(seconds: 2),
-  });
-
-  @override
-  State<FloatingScoreWidget> createState() => _FloatingScoreWidgetState();
-}
-
-class _FloatingScoreWidgetState extends State<FloatingScoreWidget>
-    with SingleTickerProviderStateMixin {
-  
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _scaleAnimation;
-  
-  @override
-  void initState() {
-    super.initState();
-    _initializeAnimations();
-    _startAnimation();
-  }
-  
-  void _initializeAnimations() {
-    _controller = AnimationController(
-      duration: widget.duration,
-      vsync: this,
-    );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0, -1),
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    ));
-    
-    _scaleAnimation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.3, curve: Curves.elasticOut),
-    ));
-  }
-  
-  void _startAnimation() {
-    _controller.forward().then((_) {
-      if (mounted) {
-        // Optionnel: supprimer le widget après l'animation
-      }
-    });
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return FadeTransition(
-          opacity: _fadeAnimation,
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: widget.points > 0 
-                      ? Colors.green.withOpacity(0.9)
-                      : Colors.red.withOpacity(0.9),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.points > 0 ? Icons.add : Icons.remove,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${widget.points > 0 ? '+' : ''}${widget.points}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.reason,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-  
-  @override
-  void dispose() {
-    _controller.dispose();
     super.dispose();
   }
 }

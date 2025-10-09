@@ -24,7 +24,7 @@ class _FinalScorePageState extends State<FinalScorePage>
   late Animation<double> _particleAnimation;
   late Animation<double> _glowAnimation;
   
-  FinalScore? _finalScore;
+  SessionStats? _sessionStats;
   bool _isLoading = true;
   
   @override
@@ -94,7 +94,7 @@ class _FinalScorePageState extends State<FinalScorePage>
     // Simuler un délai pour l'effet dramatique
     Future.delayed(const Duration(milliseconds: 500), () {
       setState(() {
-        _finalScore = _scoreService.getFinalScore();
+        _sessionStats = _scoreService.getSessionStats();
         _isLoading = false;
       });
       
@@ -177,7 +177,7 @@ class _FinalScorePageState extends State<FinalScorePage>
   }
   
   Widget _buildScoreScreen() {
-    if (_finalScore == null) return const SizedBox.shrink();
+    if (_sessionStats == null) return const SizedBox.shrink();
     
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -309,7 +309,7 @@ class _FinalScorePageState extends State<FinalScorePage>
           ),
           const SizedBox(height: 12),
           Text(
-            '${_finalScore!.totalScore}',
+            '${_sessionStats!.totalDuration.inSeconds}s',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 48,
@@ -320,9 +320,9 @@ class _FinalScorePageState extends State<FinalScorePage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildStatItem('Durée', _finalScore!.formattedDuration),
-              _buildStatItem('Pages', '${_finalScore!.pageScores.length}'),
-              _buildStatItem('Événements', '${_finalScore!.scoreEvents.length}'),
+              _buildStatItem('Durée', _sessionStats!.formattedDuration),
+              _buildStatItem('Pages', '${_sessionStats!.pageSessions.length}'),
+              _buildStatItem('Temps moyen', '${_sessionStats!.averageTimePerPage.toStringAsFixed(1)}s'),
             ],
           ),
         ],
@@ -373,13 +373,11 @@ class _FinalScorePageState extends State<FinalScorePage>
             ),
           ),
           const SizedBox(height: 16),
-          _buildStatRow('Score moyen par page', '${_finalScore!.averageScorePerPage.toStringAsFixed(1)}'),
-          _buildStatRow('Temps moyen par page', '${_finalScore!.averageTimePerPage.toStringAsFixed(1)}s'),
-          _buildStatRow('Score par seconde', '${_finalScore!.scorePerSecond.toStringAsFixed(2)}'),
-          if (_finalScore!.bestPage != null)
-            _buildStatRow('Meilleure page', '${_finalScore!.bestPage!.pageName} (${_finalScore!.bestPage!.score} pts)'),
-          if (_finalScore!.worstPage != null)
-            _buildStatRow('Page la plus difficile', '${_finalScore!.worstPage!.pageName} (${_finalScore!.worstPage!.score} pts)'),
+          _buildStatRow('Temps moyen par page', '${_sessionStats!.averageTimePerPage.toStringAsFixed(1)}s'),
+          if (_sessionStats!.longestPage != null)
+            _buildStatRow('Page la plus longue', '${_sessionStats!.longestPage!.pageName} (${_sessionStats!.longestPage!.durationInSeconds.toStringAsFixed(1)}s)'),
+          if (_sessionStats!.shortestPage != null)
+            _buildStatRow('Page la plus courte', '${_sessionStats!.shortestPage!.pageName} (${_sessionStats!.shortestPage!.durationInSeconds.toStringAsFixed(1)}s)'),
         ],
       ),
     );
@@ -408,7 +406,7 @@ class _FinalScorePageState extends State<FinalScorePage>
   }
   
   Widget _buildPageDetails() {
-    if (_finalScore!.pageScores.isEmpty) {
+    if (_sessionStats!.pageSessions.isEmpty) {
       return const SizedBox.shrink();
     }
     
@@ -431,7 +429,7 @@ class _FinalScorePageState extends State<FinalScorePage>
             ),
           ),
           const SizedBox(height: 16),
-          ..._finalScore!.pageScores.values.map((pageScore) {
+          ..._sessionStats!.pageSessions.values.map((pageSession) {
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
@@ -447,7 +445,7 @@ class _FinalScorePageState extends State<FinalScorePage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          pageScore.pageName,
+                          pageSession.pageName,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -456,7 +454,7 @@ class _FinalScorePageState extends State<FinalScorePage>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${pageScore.duration.inMinutes}m ${pageScore.duration.inSeconds.remainder(60)}s',
+                          '${pageSession.duration.inMinutes}m ${pageSession.duration.inSeconds.remainder(60)}s',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 12,
@@ -469,7 +467,7 @@ class _FinalScorePageState extends State<FinalScorePage>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '${pageScore.score} pts',
+                        '${pageSession.durationInSeconds.toStringAsFixed(1)}s',
                         style: const TextStyle(
                           color: Colors.yellow,
                           fontSize: 18,
@@ -477,7 +475,7 @@ class _FinalScorePageState extends State<FinalScorePage>
                         ),
                       ),
                       Text(
-                        '${pageScore.scorePerSecond.toStringAsFixed(1)} pts/s',
+                        'Durée totale',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 10,
@@ -499,7 +497,7 @@ class _FinalScorePageState extends State<FinalScorePage>
       children: [
         ElevatedButton.icon(
           onPressed: () {
-            _scoreService.reset();
+            _scoreService.resetSession();
             Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
           },
           icon: const Icon(Icons.home),
