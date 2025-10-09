@@ -37,8 +37,6 @@ dependencies:
   sensors_plus:
   torch_light:
   audioplayers: ^6.1.0
-  http: ^1.1.0
-  web_socket_channel: ^2.4.0
   
   # Firebase dependencies
   firebase_core: ^3.6.0

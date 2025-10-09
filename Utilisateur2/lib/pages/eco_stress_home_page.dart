@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/global_score_service.dart';
 import '../widgets/score_display_widget.dart';
 import 'page1_puzzle.dart';
@@ -29,12 +30,18 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   late AnimationController _particleController;
   late AnimationController _fadeController;
   late AnimationController _glitchController;
+  late AnimationController _slideController;
+  late AnimationController _scaleController;
+  late AnimationController _rotationController;
   
   late Animation<double> _pulseAnimation;
   late Animation<double> _stressAnimation;
   late Animation<double> _particleAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<double> _glitchAnimation;
+  late Animation<Offset> _slideAnimation;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _rotationAnimation;
   
   double _stressLevel = 0.0;
   bool _isGlitching = false;
@@ -47,6 +54,9 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     _initializeAnimations();
     _startStressSimulation();
     _scoreService.startSession();
+    
+    // Haptic feedback au démarrage
+    HapticFeedback.lightImpact();
   }
   
   void _initializeAnimations() {
@@ -74,6 +84,21 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
+    
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _rotationController = AnimationController(
+      duration: const Duration(seconds: 10),
+      vsync: this,
+    )..repeat();
     
     _pulseAnimation = Tween<double>(
       begin: 0.95,
@@ -106,7 +131,35 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       end: 1.0,
     ).animate(_glitchController);
     
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _scaleAnimation = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _scaleController,
+      curve: Curves.elasticOut,
+    ));
+    
+    _rotationAnimation = Tween<double>(
+      begin: 0.0,
+      end: 2 * math.pi,
+    ).animate(_rotationController);
+    
+    // Démarrer les animations avec des délais
     _fadeController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _slideController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _scaleController.forward();
+    });
   }
   
   void _startStressSimulation() {
@@ -131,6 +184,8 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       _isGlitching = true;
     });
     
+    HapticFeedback.heavyImpact();
+    
     _glitchController.forward().then((_) {
       _glitchController.reset();
       setState(() {
@@ -153,15 +208,32 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
-              child: _buildMainContent(),
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: ScaleTransition(
+                  scale: _scaleAnimation,
+                  child: _buildMainContent(),
+                ),
+              ),
             ),
           ),
           
-          // Widget de score
+          // Widget de score avec animation
           Positioned(
             top: 20,
             right: 20,
-            child: const ScoreDisplayWidget(compact: true),
+            child: AnimatedBuilder(
+              animation: _fadeAnimation,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(0, 50 * (1 - _fadeAnimation.value)),
+                  child: Opacity(
+                    opacity: _fadeAnimation.value,
+                    child: const ScoreDisplayWidget(compact: true),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -236,34 +308,37 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   
   Widget _buildDangerousEmoji() {
     return AnimatedBuilder(
-      animation: _glitchAnimation,
+      animation: Listenable.merge([_glitchAnimation, _rotationAnimation]),
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(
             _isGlitching ? (math.Random().nextDouble() - 0.5) * 10 : 0,
             _isGlitching ? (math.Random().nextDouble() - 0.5) * 5 : 0,
           ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.red.withOpacity(0.3),
-              border: Border.all(
-                color: Colors.red.withOpacity(0.8),
-                width: 3,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.red.withOpacity(0.5),
-                  blurRadius: 20,
-                  spreadRadius: 5,
+          child: Transform.rotate(
+            angle: _isGlitching ? _rotationAnimation.value * 0.1 : 0,
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.red.withOpacity(0.3),
+                border: Border.all(
+                  color: Colors.red.withOpacity(0.8),
+                  width: 3,
                 ),
-              ],
-            ),
-            child: Icon(
-              Icons.warning,
-              color: _isGlitching ? Colors.cyan : Colors.red,
-              size: 60,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withOpacity(0.5),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.warning,
+                color: _isGlitching ? Colors.cyan : Colors.red,
+                size: 60,
+              ),
             ),
           ),
         );
@@ -274,21 +349,29 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   Widget _buildMainTitle() {
     return Column(
       children: [
-        Text(
-          'Pandora Box',
-          style: TextStyle(
-            fontSize: 48,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 2,
-            shadows: [
-              Shadow(
-                color: Colors.red.withOpacity(0.5),
-                blurRadius: 20,
-                offset: const Offset(0, 0),
+        AnimatedBuilder(
+          animation: _pulseAnimation,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: 1 + (_pulseAnimation.value - 1) * 0.1,
+              child: Text(
+                'Pandora Box',
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 2,
+                  shadows: [
+                    Shadow(
+                      color: Colors.red.withOpacity(0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, 0),
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
+            );
+          },
         ),
         const SizedBox(height: 8),
         Text(
@@ -304,24 +387,32 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   }
   
   Widget _buildSubtitle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.red.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        '⚠️ Environnement de stress intense',
-        style: TextStyle(
-          fontSize: 16,
-          color: Colors.red.shade300,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: 1 + (_pulseAnimation.value - 1) * 0.05,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.red.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              '⚠️ Environnement de stress intense',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.red.shade300,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
   
@@ -331,24 +422,41 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       builder: (context, child) {
         return Transform.scale(
           scale: _pulseAnimation.value,
-          child: ElevatedButton(
-            onPressed: () => _showGameMenu(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
-              ),
-              elevation: 8,
-              shadowColor: Colors.red.withOpacity(0.5),
-            ),
-            child: const Text(
-              'Jouer Maintenant',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                _showGameMenu();
+              },
+              borderRadius: BorderRadius.circular(25),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.red.shade600, Colors.red.shade800],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(25),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.red.withOpacity(0.5),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Text(
+                  'Jouer Maintenant',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           ),
@@ -358,149 +466,167 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   }
   
   Widget _buildMultiplayerSection() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.1),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          ElevatedButton.icon(
-            onPressed: () => _navigateToMultiplayer(),
-            icon: const Icon(Icons.people, color: Colors.white),
-            label: const Text(
-              'Mode Multijoueur (Firebase requis)',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade600,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-              shape: RoundedRectangleBorder(
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 30 * (1 - _fadeAnimation.value)),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
               ),
-              elevation: 4,
+              child: Column(
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        _navigateToMultiplayer();
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.blue.shade600, Colors.blue.shade800],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.3),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.people, color: Colors.white),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Mode Multijoueur',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  Text(
+                    '📝 Consultez la documentation pour activer le multijoueur',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  Text(
+                    '📱 Installez l\'app pour jouer hors-ligne !',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           ),
-          
-          const SizedBox(height: 16),
-          
-          Text(
-            '📝 Consultez la documentation pour activer le multijoueur',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          
-          const SizedBox(height: 12),
-          
-          Text(
-            '📱 Installez l\'app pour jouer hors-ligne !',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
   
-  
-  Widget _buildRuleCard({
-    required String number,
-    required String icon,
-    required String title,
-    required String description,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                number,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+  Widget _buildRulesButton() {
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 20 * (1 - _fadeAnimation.value)),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _showGameRules();
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.purple.shade600, Colors.purple.shade800],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.purple.withOpacity(0.3),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.rule, color: Colors.white),
+                      const SizedBox(width: 12),
+                      const Text(
+                        'Règles du jeu',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          
-          const SizedBox(width: 20),
-          
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      icon,
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
   
   void _showGameMenu() {
+    HapticFeedback.lightImpact();
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
         decoration: BoxDecoration(
           color: const Color(0xFF1A1A1A),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -510,7 +636,6 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
           ),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 40,
@@ -535,44 +660,52 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
             
             const SizedBox(height: 20),
             
-            _buildGameOption('Puzzle', Icons.extension, Colors.blue, () {
-              Navigator.pop(context);
-              _navigateToPage('Puzzle', const Page1Puzzle());
-            }),
-            
-            _buildGameOption('Détecteur de Stress', Icons.psychology, Colors.red, () {
-              Navigator.pop(context);
-              _navigateToPage('Stress', const StressPage());
-            }),
-            
-            _buildGameOption('Mots Croisés', Icons.grid_on, Colors.green, () {
-              Navigator.pop(context);
-              _navigateToPage('Mots Croisés', const Page3Crossword());
-            }),
-            
-            _buildGameOption('Jeu du Tram', Icons.train, Colors.orange, () {
-              Navigator.pop(context);
-              _navigateToPage('Tram', const Page4Tram());
-            }),
-            
-            _buildGameOption('Notifications', Icons.notifications, Colors.purple, () {
-              Navigator.pop(context);
-              _navigateToPage('Notifications', const Page5Notifications());
-            }),
-            
-            _buildGameOption('Page de Succès', Icons.emoji_events, Colors.amber, () {
-              Navigator.pop(context);
-              _navigateToPage('Succès', const CalmSuccessPage());
-            }),
-            
-            _buildGameOption('Scores', Icons.analytics, Colors.indigo, () {
-              Navigator.pop(context);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const FinalScorePage()),
-              );
-            }),
-            
-            const SizedBox(height: 20),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildGameOption('Puzzle', Icons.extension, Colors.blue, () {
+                      Navigator.pop(context);
+                      _navigateToPage('Puzzle', const Page1Puzzle());
+                    }),
+                    
+                    _buildGameOption('Détecteur de Stress', Icons.psychology, Colors.red, () {
+                      Navigator.pop(context);
+                      _navigateToPage('Stress', const StressPage());
+                    }),
+                    
+                    _buildGameOption('Mots Croisés', Icons.grid_on, Colors.green, () {
+                      Navigator.pop(context);
+                      _navigateToPage('Mots Croisés', const Page3Crossword());
+                    }),
+                    
+                    _buildGameOption('Jeu du Tram', Icons.train, Colors.orange, () {
+                      Navigator.pop(context);
+                      _navigateToPage('Tram', const Page4Tram());
+                    }),
+                    
+                    _buildGameOption('Notifications', Icons.notifications, Colors.purple, () {
+                      Navigator.pop(context);
+                      _navigateToPage('Notifications', const Page5Notifications());
+                    }),
+                    
+                    _buildGameOption('Page de Succès', Icons.emoji_events, Colors.amber, () {
+                      Navigator.pop(context);
+                      _navigateToPage('Succès', const CalmSuccessPage());
+                    }),
+                    
+                    _buildGameOption('Scores', Icons.analytics, Colors.indigo, () {
+                      Navigator.pop(context);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const FinalScorePage()),
+                      );
+                    }),
+                    
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -585,7 +718,10 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
           borderRadius: BorderRadius.circular(12),
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -623,32 +759,9 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     );
   }
   
-  Widget _buildRulesButton() {
-    return ElevatedButton.icon(
-      onPressed: () => _showGameRules(),
-      icon: const Icon(Icons.rule, color: Colors.white),
-      label: const Text(
-        'Règles du jeu',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.purple.shade600,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        elevation: 4,
-      ),
-    );
-  }
-  
   void _navigateToMultiplayer() {
     try {
+      HapticFeedback.mediumImpact();
       _scoreService.startPage('Multijoueur');
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const WorkingMultiplayerPage()),
@@ -791,7 +904,85 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     );
   }
   
+  Widget _buildRuleCard({
+    required String number,
+    required String icon,
+    required String title,
+    required String description,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                number,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 20),
+          
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      icon,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: color,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
   void _navigateToPage(String pageName, Widget page) {
+    HapticFeedback.lightImpact();
     _scoreService.startPage(pageName);
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => page),
@@ -807,6 +998,9 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     _particleController.dispose();
     _fadeController.dispose();
     _glitchController.dispose();
+    _slideController.dispose();
+    _scaleController.dispose();
+    _rotationController.dispose();
     _stressTimer?.cancel();
     _glitchTimer?.cancel();
     super.dispose();
