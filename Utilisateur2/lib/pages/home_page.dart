@@ -9,6 +9,7 @@ import 'page5_notifications.dart';
 import 'page5_success.dart';
 import 'firebase_admin_panel.dart';
 import 'working_multiplayer_page.dart';
+import 'game_stats_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -172,6 +173,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         _buildDebugButton('Page 4', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page4Tram()))),
                         _buildDebugButton('Page 5', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Page5Notifications()))),
                         _buildDebugButton('Success', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalmSuccessPage()))),
+                        _buildDebugButton('Statistiques', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GameStatsPage()))),
                         _buildDebugButton('Admin Firebase', () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FirebaseAdminPanel()))),
                       ],
                     ),

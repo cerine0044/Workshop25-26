@@ -37,6 +37,7 @@ dependencies:
   sensors_plus:
   torch_light:
   audioplayers: ^6.1.0
+  shared_preferences: ^2.2.2
   
   # Firebase dependencies
   firebase_core: ^3.15.2

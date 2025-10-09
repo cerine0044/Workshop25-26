@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../services/game_stats_service.dart';
+import '../widgets/game_timer_widget.dart';
 import 'stress_page.dart';
 
 class Page1Puzzle extends StatefulWidget {
@@ -10,12 +12,27 @@ class Page1Puzzle extends StatefulWidget {
 }
 
 class _Page1PuzzleState extends State<Page1Puzzle> {
+  final GameStatsService _statsService = GameStatsService();
+  
   bool _showHome = true;
   bool _won = false;
   final math.Random _rand = math.Random();
 
   bool _split = false; // Le bouton invisible est-il actif ?
   Offset _decoyOffset = Offset.zero; // Position du bouton leurre
+
+  @override
+  void initState() {
+    super.initState();
+    _startGameSession();
+  }
+
+  void _startGameSession() {
+    _statsService.startGameSession(
+      playerName: 'Joueur Solo',
+      gameRoom: 'Puzzle',
+    );
+  }
 
   void _onAttemptMoveDecoy() {
     // Active le bouton invisible au premier mouvement
@@ -34,16 +51,37 @@ class _Page1PuzzleState extends State<Page1Puzzle> {
     });
   }
 
+  Future<void> _endGameSession() async {
+    await _statsService.endGameSession(
+      completed: _won,
+      score: _won ? 100 : 0,
+      additionalData: {
+        'buttonFound': _won,
+        'attempts': _split ? 1 : 0,
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF101018),
       body: SafeArea(
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: _showHome ? _buildHome() : _buildResult(),
-          ),
+        child: Stack(
+          children: [
+            Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: _showHome ? _buildHome() : _buildResult(),
+              ),
+            ),
+            // Chronomètre en haut à droite
+            const Positioned(
+              top: 16,
+              right: 16,
+              child: GameTimerWidget(),
+            ),
+          ],
         ),
       ),
     );
@@ -83,10 +121,11 @@ class _Page1PuzzleState extends State<Page1Puzzle> {
               children: [
                 // Bouton OUI (toujours visible et fonctionnel)
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     setState(() {
                       _showHome = false;
                     });
+                    await _endGameSession();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
@@ -115,6 +154,7 @@ class _Page1PuzzleState extends State<Page1Puzzle> {
                             setState(() {
                               _won = true;
                             });
+                            await _endGameSession();
                             await _showWinDialog();
                             if (mounted) {
                               Navigator.of(context).pushReplacement(
