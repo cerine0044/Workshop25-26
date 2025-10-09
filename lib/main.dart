@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'pages/start_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,241 +19,210 @@ class MyApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: const GameModeSelectionPage(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class GameModeSelectionPage extends StatefulWidget {
+  const GameModeSelectionPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<GameModeSelectionPage> createState() => _GameModeSelectionPageState();
 }
 
-class _HomePageState extends State<HomePage> {
-  final TextEditingController _roomNameController = TextEditingController();
-  final TextEditingController _roomIdController = TextEditingController();
-  String _currentRoomId = '';
-  List<String> _players = [];
-
+class _GameModeSelectionPageState extends State<GameModeSelectionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        title: const Text('Pandora Box - Multijoueur', style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Titre
-            const Text(
-              '🎮 Mode Multijoueur',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Titre principal
+              const SizedBox(height: 40),
+              const Text(
+                'PANDORA BOX',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 8,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 30),
-
-            // Actions principales
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _createRoom,
-                    icon: const Icon(Icons.add_circle),
-                    label: const Text('Créer un salon'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                    ),
-                  ),
+              const SizedBox(height: 20),
+              const Text(
+                'Libère l\'influenceur du stress numérique',
+                style: TextStyle(
+                  color: Colors.yellowAccent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _joinRoom,
-                    icon: const Icon(Icons.login),
-                    label: const Text('Rejoindre'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 60),
 
-            // Statut de la salle
-            if (_currentRoomId.isNotEmpty) ...[
+              // Description du jeu
               Container(
-                padding: const EdgeInsets.all(15),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
-                  border: Border.all(color: Colors.green),
-                  borderRadius: BorderRadius.circular(10),
+                  color: Colors.deepPurple.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.deepPurple.withOpacity(0.5)),
                 ),
-                child: Column(
+                child: const Column(
                   children: [
-                    const Text(
-                      '✅ Salon Actif',
+                    Text(
+                      '🎯 Mission',
                       style: TextStyle(
-                        color: Colors.green,
-                        fontSize: 18,
+                        color: Colors.white,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Text(
-                      'ID: $_currentRoomId',
-                      style: const TextStyle(color: Colors.white70),
+                      'Sensibilise sur le harcèlement, RGPD, burnout et désinformation.\n'
+                      'Chaque joueur est chronométré - le plus rapide gagne !',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 10),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+
+              // Boutons de sélection de mode
+              ElevatedButton.icon(
+                onPressed: () => _startGame(false),
+                icon: const Icon(Icons.person, size: 28),
+                label: const Text(
+                  'MODE SOLO',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton.icon(
+                onPressed: () => _startGame(true),
+                icon: const Icon(Icons.people, size: 28),
+                label: const Text(
+                  'MODE MULTIJOUEUR',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+
+              const Spacer(),
+
+              // Instructions du jeu
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      'Joueurs: ${_players.length}',
-                      style: const TextStyle(color: Colors.white70),
+                      '📋 Déroulement du jeu:',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      '1. START - Chrono commence dès que tu appuies\n'
+                      '2. Page 1 - Trouve 4 boutons cachés\n'
+                      '3. Page 2 - Détecteur de stress avec flash\n'
+                      '4. Page 3 - Mots fléchés RGPD (10 mots)\n'
+                      '5. Page 4 - Dilemme tramway (20 questions)\n'
+                      '6. Page 5 - Décoche tes notifications\n'
+                      '7. Succès - Page blanche et calme',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Avertissement épilepsie
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.5)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning, color: Colors.redAccent, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Attention: Effets lumineux pouvant déclencher une crise d\'épilepsie',
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
-
-            const Spacer(),
-
-            // Instructions
-            Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                border: Border.all(color: Colors.blue),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '📋 Instructions:',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    '1. Créez un salon et partagez l\'ID\n'
-                    '2. L\'autre joueur utilise cet ID pour rejoindre\n'
-                    '3. Les mises à jour sont en temps réel !',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  void _createRoom() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Créer un salon', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: _roomNameController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'Nom du salon',
-            labelStyle: TextStyle(color: Colors.white70),
-            border: OutlineInputBorder(),
-          ),
+  void _startGame(bool isMultiplayer) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => StartPage(
+          isMultiplayer: isMultiplayer,
+          roomId: isMultiplayer ? DateTime.now().millisecondsSinceEpoch.toString() : null,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (_roomNameController.text.trim().isNotEmpty) {
-                final roomId = DateTime.now().millisecondsSinceEpoch.toString();
-                setState(() {
-                  _currentRoomId = roomId;
-                  _players = ['Vous (Hôte)'];
-                });
-                _showSnackBar('Salon créé ! ID: $roomId', Colors.green);
-                Navigator.pop(context);
-              } else {
-                _showSnackBar('Veuillez entrer un nom de salon', Colors.red);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Créer', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _joinRoom() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[900],
-        title: const Text('Rejoindre un salon', style: TextStyle(color: Colors.white)),
-        content: TextField(
-          controller: _roomIdController,
-          style: const TextStyle(color: Colors.white),
-          decoration: const InputDecoration(
-            labelText: 'ID du salon',
-            labelStyle: TextStyle(color: Colors.white70),
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (_roomIdController.text.trim().isNotEmpty) {
-                setState(() {
-                  _currentRoomId = _roomIdController.text.trim();
-                  _players = ['Joueur 1', 'Vous'];
-                });
-                _showSnackBar('Connexion réussie !', Colors.green);
-                Navigator.pop(context);
-              } else {
-                _showSnackBar('Veuillez entrer un ID de salon', Colors.red);
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Rejoindre', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
       ),
     );
   }
