@@ -3,13 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/global_score_service.dart';
-import '../widgets/score_display_widget.dart';
 import 'page1_puzzle.dart';
 import 'stress_page.dart';
 import 'page3_words.dart';
 import 'page4_tram.dart';
 import 'page5_notifications.dart';
-import 'page5_success.dart';
 import 'working_multiplayer_page.dart';
 import 'final_score_page.dart';
 
@@ -658,42 +656,108 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    _buildGameOption('Puzzle', Icons.extension, Colors.blue, () {
+                    _buildGameOption('🧩 Défi Puzzle', Icons.extension, Colors.blue, () {
                       Navigator.pop(context);
                       _navigateToPage('Puzzle', const Page1Puzzle());
                     }),
                     
-                    _buildGameOption('Détecteur de Stress', Icons.psychology, Colors.red, () {
+                    _buildGameOption('🧠 Détecteur de Stress', Icons.psychology, Colors.red, () {
                       Navigator.pop(context);
                       _navigateToPage('Stress', const StressPage());
                     }),
                     
-                    _buildGameOption('Mots Croisés', Icons.grid_on, Colors.green, () {
+                    _buildGameOption('📝 Mots Croisés', Icons.grid_on, Colors.green, () {
                       Navigator.pop(context);
                       _navigateToPage('Mots Croisés', const Page3Words());
                     }),
                     
-                    _buildGameOption('Jeu du Tram', Icons.train, Colors.orange, () {
+                    _buildGameOption('🚊 Jeu du Tram', Icons.train, Colors.orange, () {
                       Navigator.pop(context);
                       _navigateToPage('Tram', const Page4Tram());
                     }),
                     
-                    _buildGameOption('Notifications', Icons.notifications, Colors.purple, () {
+                    _buildGameOption('🔔 Notifications', Icons.notifications, Colors.purple, () {
                       Navigator.pop(context);
                       _navigateToPage('Notifications', const Page5Notifications());
                     }),
                     
-                    _buildGameOption('Page de Succès', Icons.emoji_events, Colors.amber, () {
-                      Navigator.pop(context);
-                      _navigateToPage('Succès', const CalmSuccessPage());
-                    }),
+                    const SizedBox(height: 20),
                     
-                    _buildGameOption('Scores', Icons.analytics, Colors.indigo, () {
-                      Navigator.pop(context);
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const FinalScorePage()),
-                      );
-                    }),
+                    // Section séparée pour les scores
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.indigo.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.analytics, color: Colors.indigo, size: 24),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Scores et Statistiques',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Column(
+                            children: [
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    HapticFeedback.lightImpact();
+                                    Navigator.pop(context);
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(builder: (_) => const FinalScorePage()),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [Colors.indigo.shade600, Colors.indigo.shade800],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.bar_chart, color: Colors.white, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Voir mes scores',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                     
                     const SizedBox(height: 20),
                   ],
@@ -756,10 +820,14 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   void _navigateToMultiplayer() {
     try {
       HapticFeedback.mediumImpact();
+      
+      // Démarrer le tracking automatique du multijoueur
       _scoreService.startPage('Multijoueur');
+      
       Navigator.of(context).push(
         MaterialPageRoute(builder: (_) => const WorkingMultiplayerPage()),
       ).then((_) {
+        // Arrêter le tracking quand on revient du multijoueur
         _scoreService.endPage('Multijoueur');
       });
     } catch (e) {
@@ -820,8 +888,8 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                     _buildRuleCard(
                       number: '1',
                       icon: '🧩',
-                      title: 'Défi Puzzle',
-                      description: 'Résolvez des énigmes complexes - Mode défi avec 2 tentatives + explications pédagogiques ⚠️',
+                      title: 'Défi Puzzle Solo',
+                      description: 'Résolvez des énigmes complexes en mode solo - Défi avec 2 tentatives maximum + explications pédagogiques détaillées',
                       color: Colors.blue,
                     ),
                     
@@ -830,8 +898,8 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                     _buildRuleCard(
                       number: '2',
                       icon: '📝',
-                      title: 'Mots Croisés',
-                      description: 'Trouvez les mots pour obtenir le code secret en 3 niveaux',
+                      title: 'Mots Croisés Solo',
+                      description: 'Trouvez les mots cachés pour obtenir le code secret - 3 niveaux de difficulté progressive',
                       color: Colors.green,
                     ),
                     
@@ -840,8 +908,8 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                     _buildRuleCard(
                       number: '3',
                       icon: '🚊',
-                      title: 'Simulation Tram',
-                      description: 'Rétablissez l\'équilibre pour sauver le système de transport',
+                      title: 'Simulation Tram Solo',
+                      description: 'Rétablissez l\'équilibre du système de transport - Mode solo avec gestion des paramètres critiques',
                       color: Colors.orange,
                     ),
                     
@@ -850,9 +918,19 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                     _buildRuleCard(
                       number: '4',
                       icon: '🧠',
-                      title: 'Détecteur de Stress',
-                      description: 'Mesurez et gérez votre niveau de stress en temps réel',
+                      title: 'Détecteur de Stress Solo',
+                      description: 'Mesurez et gérez votre niveau de stress personnel - Analyse en temps réel de vos réactions',
                       color: Colors.red,
+                    ),
+                    
+                    const SizedBox(height: 16),
+                    
+                    _buildRuleCard(
+                      number: '5',
+                      icon: '🔔',
+                      title: 'Gestion Notifications Solo',
+                      description: 'Apprenez à gérer les notifications de manière efficace - Mode solo pour développer vos compétences de gestion du temps',
+                      color: Colors.purple,
                     ),
                     
                     const SizedBox(height: 20),
@@ -867,20 +945,56 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
                           width: 2,
                         ),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          const Icon(
-                            Icons.timer,
-                            color: Colors.red,
-                            size: 24,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.timer,
+                                color: Colors.red,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Mode Solo - Temps limité : 3 minutes',
+                                style: TextStyle(
+                                  color: Colors.red.shade300,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Temps limité : 3 minutes',
-                            style: TextStyle(
-                              color: Colors.red.shade300,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.blue.withOpacity(0.3),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blue,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Chaque jeu solo vous permet de développer vos compétences individuellement avant de passer au mode multijoueur',
+                                    style: TextStyle(
+                                      color: Colors.blue.shade300,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -977,13 +1091,15 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   
   void _navigateToPage(String pageName, Widget page) {
     HapticFeedback.lightImpact();
+    
+    // Démarrer le tracking automatique du jeu
     _scoreService.startPage(pageName);
+    
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => page),
     ).then((_) {
+      // Arrêter le tracking quand on revient du jeu
       _scoreService.endPage(pageName);
-      // Réinitialiser le chrono quand on revient d'une page solo
-      _resetTimer();
     });
   }
   
@@ -1002,11 +1118,6 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     super.dispose();
   }
   
-  // Méthode pour réinitialiser le chrono quand on quitte le mode solo
-  void _resetTimer() {
-    _scoreService.resetSession();
-    _scoreService.startSession();
-  }
 }
 
 class EcoStressParticlePainter extends CustomPainter {

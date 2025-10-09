@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../services/game_stats_service.dart';
+import '../services/global_score_service.dart';
 import '../widgets/game_timer_widget.dart';
 import 'page5_success.dart';
 
@@ -18,6 +19,7 @@ class _Page5NotificationsState extends State<Page5Notifications>
     with SingleTickerProviderStateMixin {
   late final AnimationController _fxController;
   final GameStatsService _statsService = GameStatsService();
+  final GlobalScoreService _scoreService = GlobalScoreService();
 
   // Fullscreen popup alerts (stacked). Closing one reduces noise.
   final List<_PopupAlert> _popups = <_PopupAlert>[
@@ -70,6 +72,10 @@ class _Page5NotificationsState extends State<Page5Notifications>
   void initState() {
     super.initState();
     _startGameSession();
+    
+    // Démarrer le tracking automatique du jeu
+    _scoreService.startPage('🔔 Notifications');
+    
     _fxController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400))
       ..repeat();
     _loopHorn = AudioPlayer();

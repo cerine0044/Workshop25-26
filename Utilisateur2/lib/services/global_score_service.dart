@@ -4,7 +4,10 @@ import 'package:flutter/foundation.dart';
 class GlobalScoreService {
   static final GlobalScoreService _instance = GlobalScoreService._internal();
   factory GlobalScoreService() => _instance;
-  GlobalScoreService._internal();
+  GlobalScoreService._internal() {
+    // Démarrer automatiquement une session au démarrage
+    startSession();
+  }
 
   // État du timer global (plus de score)
   DateTime? _sessionStartTime;
@@ -41,7 +44,7 @@ class GlobalScoreService {
     _notifySessionUpdate();
   }
   
-  // Démarrer le suivi d'une page
+  // Démarrer le suivi d'une page (appelé automatiquement quand on entre dans un jeu)
   void startPage(String pageName, {String? pageDescription}) {
     _endCurrentPage();
     
@@ -49,9 +52,13 @@ class GlobalScoreService {
     
     _startPageTimer();
     _notifySessionUpdate();
+    
+    if (kDebugMode) {
+      print('🎮 Début du jeu: $pageName');
+    }
   }
   
-  // Terminer la page actuelle
+  // Terminer la page actuelle (appelé automatiquement quand on quitte un jeu)
   void endPage(String pageName) {
     if (_currentPageStartTime != null) {
       final duration = DateTime.now().difference(_currentPageStartTime!);
@@ -64,9 +71,23 @@ class GlobalScoreService {
       
       _pageSessions[pageName] = pageSession;
       _notifySessionUpdate();
+      
+      if (kDebugMode) {
+        print('🏁 Fin du jeu: $pageName - Durée: ${duration.inSeconds}s');
+      }
     }
     
     _endCurrentPage();
+  }
+  
+  // Terminer la session complète (appelé quand on revient à l'accueil)
+  void endSession() {
+    _endCurrentPage();
+    _sessionTimer?.cancel();
+    
+    if (kDebugMode) {
+      print('📊 Session terminée - ${_pageSessions.length} jeux joués');
+    }
   }
   
   // Réinitialiser complètement la session (pour corriger le chrono)
@@ -223,3 +244,4 @@ class SessionStats {
     }
   }
 }
+
