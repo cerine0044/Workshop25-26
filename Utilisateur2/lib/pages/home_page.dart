@@ -8,6 +8,7 @@ import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
 import 'room_management_page.dart';
+import 'enhanced_room_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -211,7 +212,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           color: Colors.greenAccent,
           onTap: () {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const RoomManagementPage()),
+              MaterialPageRoute(builder: (_) => const EnhancedRoomPage()),
             );
           },
         ),
