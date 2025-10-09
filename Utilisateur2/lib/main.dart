@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'pages/eco_stress_home_page.dart';
 import 'pages/fallback_home_page.dart';
 import 'pages/error_page.dart';
+import 'pages/loading_page.dart';
 import 'services/firebase_multiplayer_service.dart';
 import 'firebase_options.dart';
 
@@ -27,6 +28,13 @@ void main() async {
     print('❌ Erreur initialisation Firebase: $e');
     firebaseInitialized = false;
     errorMessage = e.toString();
+    
+    // Si c'est une erreur de configuration Firebase, on peut continuer en mode fallback
+    if (e.toString().contains('configuration-not-found')) {
+      print('⚠️ Mode fallback activé - Firebase Auth non configuré');
+      firebaseInitialized = true; // On considère que c'est OK pour le mode fallback
+      errorMessage = null;
+    }
   }
   
   runApp(PandoraBoxApp(
@@ -138,9 +146,12 @@ class PandoraBoxApp extends StatelessWidget {
     } else if (errorMessage != null && errorMessage!.contains('configuration-not-found')) {
       // Erreur d'authentification Firebase - utiliser le mode fallback
       return const FallbackHomePage();
-    } else {
+    } else if (errorMessage != null) {
       // Autre erreur - afficher la page d'erreur
       return ErrorPage(errorMessage: errorMessage);
+    } else {
+      // Pas d'erreur mais pas initialisé - afficher la page de chargement
+      return const LoadingPage();
     }
   }
 }

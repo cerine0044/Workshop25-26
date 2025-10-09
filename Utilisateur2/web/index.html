@@ -194,14 +194,43 @@
     window.addEventListener('offline', updateConnectionStatus);
     updateConnectionStatus();
     
-    // Error handling
+    // Error handling - Improved version
     window.addEventListener('error', function(e) {
       console.error('Global error:', e.error);
-      showError('Une erreur est survenue. Veuillez recharger la page.');
+      
+      // Only show error for critical errors, not Firebase initialization issues
+      if (e.error && e.error.message) {
+        const errorMessage = e.error.message.toLowerCase();
+        if (errorMessage.includes('firebase') || 
+            errorMessage.includes('configuration') ||
+            errorMessage.includes('auth') ||
+            errorMessage.includes('network')) {
+          console.warn('Non-critical error, not showing user message:', e.error);
+          return;
+        }
+      }
+      
+      // Only show error for truly critical issues
+      if (e.filename && !e.filename.includes('firebase')) {
+        showError('Une erreur est survenue. Veuillez recharger la page.');
+      }
     });
     
     window.addEventListener('unhandledrejection', function(e) {
       console.error('Unhandled promise rejection:', e.reason);
+      
+      // Only show error for critical rejections
+      if (e.reason && typeof e.reason === 'string') {
+        const reason = e.reason.toLowerCase();
+        if (reason.includes('firebase') || 
+            reason.includes('configuration') ||
+            reason.includes('auth') ||
+            reason.includes('network')) {
+          console.warn('Non-critical promise rejection, not showing user message:', e.reason);
+          return;
+        }
+      }
+      
       showError('Erreur de connexion. Vérifiez votre connexion internet.');
     });
     
@@ -220,10 +249,22 @@
       }, 5000);
     }
     
-    // Flutter ready detection
+    // Flutter ready detection with timeout
+    let flutterReady = false;
+    
     window.addEventListener('flutter-first-frame', function() {
+      flutterReady = true;
       document.body.classList.add('flutter-ready');
+      console.log('Flutter app loaded successfully');
     });
+    
+    // Fallback timeout for Flutter loading
+    setTimeout(function() {
+      if (!flutterReady) {
+        console.warn('Flutter loading timeout, showing app anyway');
+        document.body.classList.add('flutter-ready');
+      }
+    }, 10000); // 10 seconds timeout
     
     // PC-specific optimizations
     if (window.innerWidth >= 1024) {

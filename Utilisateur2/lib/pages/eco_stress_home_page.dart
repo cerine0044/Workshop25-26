@@ -51,115 +51,145 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   @override
   void initState() {
     super.initState();
-    _initializeAnimations();
-    _startStressSimulation();
-    _scoreService.startSession();
-    
-    // Haptic feedback au démarrage
-    HapticFeedback.lightImpact();
+    try {
+      _initializeAnimations();
+      _startStressSimulation();
+      _scoreService.startSession();
+      
+      // Haptic feedback au démarrage
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      print('❌ Erreur initialisation EcoStressHomePage: $e');
+      // Continuer même en cas d'erreur d'animation
+    }
   }
   
   void _initializeAnimations() {
+    try {
+      _pulseController = AnimationController(
+        duration: const Duration(seconds: 3),
+        vsync: this,
+      )..repeat(reverse: true);
+      
+      _stressController = AnimationController(
+        duration: const Duration(seconds: 4),
+        vsync: this,
+      )..repeat(reverse: true);
+      
+      _particleController = AnimationController(
+        duration: const Duration(seconds: 8),
+        vsync: this,
+      )..repeat();
+      
+      _fadeController = AnimationController(
+        duration: const Duration(milliseconds: 1500),
+        vsync: this,
+      );
+      
+      _glitchController = AnimationController(
+        duration: const Duration(milliseconds: 200),
+        vsync: this,
+      );
+      
+      _slideController = AnimationController(
+        duration: const Duration(milliseconds: 800),
+        vsync: this,
+      );
+      
+      _scaleController = AnimationController(
+        duration: const Duration(milliseconds: 600),
+        vsync: this,
+      );
+      
+      _rotationController = AnimationController(
+        duration: const Duration(seconds: 10),
+        vsync: this,
+      )..repeat();
+      
+      _pulseAnimation = Tween<double>(
+        begin: 0.95,
+        end: 1.05,
+      ).animate(CurvedAnimation(
+        parent: _pulseController,
+        curve: Curves.easeInOut,
+      ));
+      
+      _stressAnimation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(_stressController);
+      
+      _particleAnimation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(_particleController);
+      
+      _fadeAnimation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(CurvedAnimation(
+        parent: _fadeController,
+        curve: Curves.easeOut,
+      ));
+      
+      _glitchAnimation = Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(_glitchController);
+      
+      _slideAnimation = Tween<Offset>(
+        begin: const Offset(0, 0.3),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _slideController,
+        curve: Curves.easeOutCubic,
+      ));
+      
+      _scaleAnimation = Tween<double>(
+        begin: 0.8,
+        end: 1.0,
+      ).animate(CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.elasticOut,
+      ));
+      
+      _rotationAnimation = Tween<double>(
+        begin: 0.0,
+        end: 2 * math.pi,
+      ).animate(_rotationController);
+      
+      // Démarrer les animations avec des délais
+      _fadeController.forward();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _slideController.forward();
+      });
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _scaleController.forward();
+      });
+      
+    } catch (e) {
+      print('❌ Erreur initialisation animations: $e');
+      // Créer des animations par défaut en cas d'erreur
+      _createDefaultAnimations();
+    }
+  }
+  
+  void _createDefaultAnimations() {
+    // Créer des animations simples en cas d'erreur
     _pulseController = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 1),
       vsync: this,
-    )..repeat(reverse: true);
-    
-    _stressController = AnimationController(
-      duration: const Duration(seconds: 4),
-      vsync: this,
-    )..repeat(reverse: true);
-    
-    _particleController = AnimationController(
-      duration: const Duration(seconds: 8),
-      vsync: this,
-    )..repeat();
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(_pulseController);
     
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
+    _fadeAnimation = Tween<double>(begin: 1.0, end: 1.0).animate(_fadeController);
     
-    _glitchController = AnimationController(
-      duration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    
-    _slideController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    
-    _rotationController = AnimationController(
-      duration: const Duration(seconds: 10),
-      vsync: this,
-    )..repeat();
-    
-    _pulseAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _pulseController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _stressAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(_stressController);
-    
-    _particleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(_particleController);
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeOut,
-    ));
-    
-    _glitchAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(_glitchController);
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-    
-    _scaleAnimation = Tween<double>(
-      begin: 0.8,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _scaleController,
-      curve: Curves.elasticOut,
-    ));
-    
-    _rotationAnimation = Tween<double>(
-      begin: 0.0,
-      end: 2 * math.pi,
-    ).animate(_rotationController);
-    
-    // Démarrer les animations avec des délais
+    // Démarrer l'animation de fade
     _fadeController.forward();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      _slideController.forward();
-    });
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _scaleController.forward();
-    });
   }
   
   void _startStressSimulation() {
