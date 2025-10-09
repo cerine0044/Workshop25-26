@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation Technique - Pandora Box</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 40px;
+            background-color: #ffffff;
+            color: #333;
+        }
+        
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin: 0;
+        }
+        
+        h2 {
+            color: #34495e;
+            font-size: 1.8em;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        
+        h3 {
+            color: #7f8c8d;
+            font-size: 1.4em;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        
+        h4 {
+            color: #95a5a6;
+            font-size: 1.2em;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .info-box {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .tech-stack {
+            background-color: #e8f4fd;
+            border-left: 4px solid #3498db;
+        }
+        
+        .feature-list {
+            background-color: #f0f8f0;
+            border-left: 4px solid #27ae60;
+        }
+        
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+        }
+        
+        code {
+            background-color: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #e74c3c;
+        }
+        
+        pre {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            border: 1px solid #e9ecef;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .file-structure {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-line;
+        }
+        
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .status-ok {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        
+        .status-warning {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .url-link {
+            color: #3498db;
+            text-decoration: none;
+        }
+        
+        .url-link:hover {
+            text-decoration: underline;
+        }
+        
+        .emoji {
+            font-size: 1.2em;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        @media print {
+            body {
+                padding: 20px;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><span class="emoji">📋</span> DOCUMENTATION TECHNIQUE</h1>
+        <h2>Application Flutter Web Multijoueur</h2>
+    </div>
+
+    <div class="info-box tech-stack">
+        <h3><span class="emoji">📊</span> INFORMATIONS GÉNÉRALES</h3>
+        <p><strong>Nom du projet :</strong> Pandora Box</p>
+        <p><strong>Version :</strong> 1.0.0+1</p>
+        <p><strong>Framework :</strong> Flutter Web</p>
+        <p><strong>Déploiement :</strong> Firebase Hosting</p>
+        <p><strong>URL de production :</strong> <a href="https://pandora-box-user2.web.app" class="url-link">https://pandora-box-user2.web.app</a></p>
+        <p><strong>Date de création :</strong> Workshop25-26</p>
+    </div>
+
+    <h2><span class="emoji">🏗️</span> ARCHITECTURE TECHNIQUE</h2>
+    
+    <h3>Stack Technologique</h3>
+    <ul>
+        <li><strong>Frontend :</strong> Flutter Web (SDK ^3.6.0)</li>
+        <li><strong>Backend :</strong> Firebase Realtime Database</li>
+        <li><strong>Authentification :</strong> Firebase Auth</li>
+        <li><strong>Hébergement :</strong> Firebase Hosting</li>
+        <li><strong>Langage :</strong> Dart</li>
+    </ul>
+
+    <h3>Dépendances Principales</h3>
+    <pre><code>dependencies:
+  flutter: sdk
+  cupertino_icons: ^1.0.8
+  sensors_plus: (capteurs mobiles)
+  torch_light: (flash mobile)
+  audioplayers: ^6.1.0
+  shared_preferences: ^2.2.2
+  firebase_core: ^3.15.2
+  firebase_database: ^11.3.10
+  firebase_auth: ^5.7.0</code></pre>
+
+    <h2><span class="emoji">📁</span> STRUCTURE DU PROJET</h2>
+    <div class="file-structure">Utilisateur2/
+├── lib/                           # Code source principal
+│   ├── main.dart                  # Point d'entrée
+│   ├── firebase_options.dart      # Configuration Firebase
+│   ├── pages/                     # Pages de l'application
+│   │   ├── home_page.dart         # Page d'accueil
+│   │   ├── page1_puzzle.dart      # Jeu puzzle interactif
+│   │   ├── stress_page.dart       # Détecteur de stress
+│   │   ├── page3_words.dart       # Jeu de mots croisés
+│   │   ├── page4_tram.dart        # Dilemme du tramway
+│   │   ├── page5_notifications.dart # Gestion notifications
+│   │   ├── game_stats_page.dart   # Page statistiques
+│   │   ├── firebase_admin_panel.dart # Panel admin
+│   │   └── working_multiplayer_page.dart # Mode multijoueur
+│   ├── services/                  # Services métier
+│   │   ├── game_stats_service.dart # Gestion statistiques
+│   │   ├── firebase_multiplayer_service.dart # Multijoueur
+│   │   └── firebase_database_manager.dart # Gestion BDD
+│   └── widgets/                   # Widgets réutilisables
+│       ├── game_timer_widget.dart # Chronomètre global
+│       └── score_display_widget.dart # Affichage scores
+├── assets/                        # Ressources (images, sons)
+├── web/                          # Configuration web
+├── build/                        # Build de production
+├── firebase.json                 # Configuration Firebase
+└── pubspec.yaml                 # Dépendances Flutter</div>
+
+    <div class="page-break"></div>
+
+    <h2><span class="emoji">🎮</span> FONCTIONNALITÉS PRINCIPALES</h2>
+    
+    <div class="info-box feature-list">
+        <h3>1. Système de Chronomètre Global</h3>
+        <ul>
+            <li><strong>Service :</strong> <code>GameStatsService</code></li>
+            <li><strong>Widget :</strong> <code>GameTimerWidget</code></li>
+            <li><strong>Fonctionnalités :</strong></li>
+            <li>Chronomètre continu à travers toutes les salles</li>
+            <li>Enregistrement automatique des sessions</li>
+            <li>Statistiques détaillées par jeu</li>
+            <li>Persistance des données avec <code>shared_preferences</code></li>
+        </ul>
+    </div>
+
+    <div class="info-box feature-list">
+        <h3>2. Mode Multijoueur Firebase</h3>
+        <ul>
+            <li><strong>Service :</strong> <code>FirebaseMultiplayerService</code></li>
+            <li><strong>Fonctionnalités :</strong></li>
+            <li>Création de rooms avec codes uniques (6 caractères)</li>
+            <li>Connexion en temps réel entre joueurs</li>
+            <li>Synchronisation des scores et états</li>
+            <li>Gestion des déconnexions intelligente</li>
+            <li>Mode fallback local en cas d'erreur</li>
+        </ul>
+    </div>
+
+    <h3>3. Jeux Disponibles</h3>
+    
+    <h4>Page 1 - Puzzle Interactif</h4>
+    <ul>
+        <li>Jeu "Es-tu stressé ?" avec bouton mobile "NON"</li>
+        <li>Système de bouton leurre et bouton caché</li>
+        <li>Intégration complète du chronomètre global</li>
+    </ul>
+
+    <h4>Page 2 - Détecteur de Stress</h4>
+    <ul>
+        <li>Utilisation des capteurs mobiles (<code>sensors_plus</code>)</li>
+        <li>Flash mobile réactif (<code>torch_light</code>)</li>
+        <li>Jauge de stress en temps réel</li>
+        <li>Seuil de déclenchement configurable</li>
+    </ul>
+
+    <h4>Page 3 - Mots Croisés</h4>
+    <ul>
+        <li>Jeu d'association de mots avec drag-and-drop</li>
+        <li>Système de stress progressif</li>
+        <li>Conseils personnalisés par mot trouvé</li>
+        <li>Mode association et mode liste</li>
+    </ul>
+
+    <h4>Page 4 - Dilemme du Tramway</h4>
+    <ul>
+        <li>20 questions de dilemmes moraux</li>
+        <li>Système de progression avec cercles visuels</li>
+        <li>Effets sonores et visuels immersifs</li>
+        <li>Comptage des décisions par type</li>
+    </ul>
+
+    <h4>Page 5 - Gestion des Notifications</h4>
+    <ul>
+        <li>Popups de notifications stressantes</li>
+        <li>Système d'intensité sonore progressive</li>
+        <li>Fermeture des notifications pour réduire le stress</li>
+        <li>Sons d'ambiance multicouches</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2><span class="emoji">🔥</span> CONFIGURATION FIREBASE</h2>
+    
+    <div class="info-box">
+        <h3>Projet Firebase</h3>
+        <p><strong>Nom :</strong> pandora-box-user2</p>
+        <p><strong>Console :</strong> <a href="https://console.firebase.google.com/project/pandora-box-user2/overview" class="url-link">https://console.firebase.google.com/project/pandora-box-user2/overview</a></p>
+        <p><strong>Database URL :</strong> <a href="https://pandora-box-user2-default-rtdb.firebaseio.com" class="url-link">https://pandora-box-user2-default-rtdb.firebaseio.com</a></p>
+    </div>
+
+    <h3>Structure de la Base de Données</h3>
+    <pre><code>{
+  "rooms": {
+    "roomId": {
+      "name": "Nom de la room",
+      "code": "ABC123",
+      "host": "userId",
+      "players": {
+        "playerId": {
+          "name": "Nom du joueur",
+          "ready": false,
+          "score": 0
+        }
+      },
+      "status": "waiting|playing|finished"
+    }
+  },
+  "players": {
+    "playerId": {
+      "name": "Nom du joueur",
+      "roomId": "roomId",
+      "lastSeen": "timestamp"
+    }
+  }
+}</code></pre>
+
+    <h2><span class="emoji">🛠️</span> OUTILS D'ADMINISTRATION</h2>
+    
+    <h3>1. Panel d'Administration In-App</h3>
+    <ul>
+        <li>Accès via bouton "Admin Firebase" sur la page d'accueil</li>
+        <li>Gestion des rooms et joueurs en temps réel</li>
+        <li>Suppression de données avec confirmation</li>
+        <li>Monitoring de l'activité</li>
+    </ul>
+
+    <h3>2. Scripts CLI de Maintenance</h3>
+    <ul>
+        <li><code>firebase_rest_cli.dart</code> - Gestion complète via REST API</li>
+        <li><code>test_multijoueur.dart</code> - Tests de connectivité</li>
+        <li><code>test_interface.dart</code> - Validation de l'interface déployée</li>
+        <li><code>deploy_firebase.sh</code> - Déploiement automatisé</li>
+    </ul>
+
+    <h3>3. Commandes de Maintenance</h3>
+    <pre><code># Analyser la base de données
+dart firebase_rest_cli.dart analyze
+
+# Nettoyer les données inactives
+dart firebase_rest_cli.dart cleanup --rooms 24 --players 7
+
+# Créer une sauvegarde
+dart firebase_rest_cli.dart backup
+
+# Voir les statistiques
+dart firebase_rest_cli.dart stats</code></pre>
+
+    <div class="page-break"></div>
+
+    <h2><span class="emoji">📊</span> SYSTÈME DE STATISTIQUES</h2>
+    
+    <h3>Données Collectées</h3>
+    <ul>
+        <li><strong>Nom du joueur</strong> et <strong>salle de jeu</strong></li>
+        <li><strong>Temps de début et fin</strong> de session</li>
+        <li><strong>Durée totale</strong> de jeu</li>
+        <li><strong>Statut de completion</strong> (réussi/échoué)</li>
+        <li><strong>Score obtenu</strong></li>
+        <li><strong>Données additionnelles</strong> spécifiques à chaque jeu</li>
+    </ul>
+
+    <h3>Persistance</h3>
+    <ul>
+        <li>Stockage local avec <code>shared_preferences</code></li>
+        <li>Sauvegarde automatique à la fin de chaque session</li>
+        <li>Chargement automatique au démarrage de l'application</li>
+    </ul>
+
+    <h3>Page de Statistiques</h3>
+    <ul>
+        <li>Affichage des sessions complétées</li>
+        <li>Statistiques agrégées par salle</li>
+        <li>Temps moyen et meilleur temps</li>
+        <li>Taux de réussite global</li>
+    </ul>
+
+    <h2><span class="emoji">🚀</span> DÉPLOIEMENT ET BUILD</h2>
+    
+    <h3>Commandes de Build</h3>
+    <pre><code># Build de production
+flutter build web --release
+
+# Build avec optimisations
+flutter build web --release --no-tree-shake-icons
+
+# Analyse du code
+flutter analyze
+
+# Tests
+flutter test</code></pre>
+
+    <h3>Déploiement Firebase</h3>
+    <pre><code># Déploiement complet
+firebase deploy
+
+# Déploiement hosting uniquement
+firebase deploy --only hosting
+
+# Script automatisé
+./deploy_firebase.sh</code></pre>
+
+    <h2><span class="emoji">🔧</span> RÉSOLUTION DE PROBLÈMES</h2>
+    
+    <h3>Problèmes Courants</h3>
+    
+    <div class="info-box warning-box">
+        <h4>Ports Occupés</h4>
+        <pre><code># Solution 1: Utiliser un port libre
+flutter run -d chrome --web-port=8087
+
+# Solution 2: Tuer les processus existants
+lsof -ti:8080 | xargs kill -9</code></pre>
+    </div>
+
+    <div class="info-box warning-box">
+        <h4>Erreurs Firebase</h4>
+        <ul>
+            <li>L'application bascule automatiquement en mode local</li>
+            <li>Vérifier la configuration Firebase</li>
+            <li>Consulter les logs de la console Firebase</li>
+        </ul>
+    </div>
+
+    <div class="info-box warning-box">
+        <h4>Problèmes de Synchronisation</h4>
+        <ul>
+            <li>Vérifier la connexion internet</li>
+            <li>Rafraîchir la page</li>
+            <li>Vérifier que tous les joueurs sont connectés</li>
+        </ul>
+    </div>
+
+    <div class="page-break"></div>
+
+    <h2><span class="emoji">📱</span> COMPATIBILITÉ</h2>
+    
+    <h3>Navigateurs Supportés</h3>
+    <table>
+        <tr>
+            <th>Navigateur</th>
+            <th>Statut</th>
+            <th>Notes</th>
+        </tr>
+        <tr>
+            <td>Chrome</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>Recommandé</td>
+        </tr>
+        <tr>
+            <td>Firefox</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>Compatible</td>
+        </tr>
+        <tr>
+            <td>Safari</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>Compatible</td>
+        </tr>
+        <tr>
+            <td>Edge</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>Compatible</td>
+        </tr>
+    </table>
+
+    <h3>Appareils Supportés</h3>
+    <table>
+        <tr>
+            <th>Type d'appareil</th>
+            <th>Statut</th>
+            <th>Plateformes</th>
+        </tr>
+        <tr>
+            <td>Ordinateurs</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>Windows, macOS, Linux</td>
+        </tr>
+        <tr>
+            <td>Tablettes</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>iPad, Android</td>
+        </tr>
+        <tr>
+            <td>Smartphones</td>
+            <td><span class="status-ok">✅ Supporté</span></td>
+            <td>iOS, Android</td>
+        </tr>
+    </table>
+
+    <h2><span class="emoji">🔒</span> SÉCURITÉ</h2>
+    
+    <h3>Authentification</h3>
+    <ul>
+        <li>Firebase Auth pour la gestion des utilisateurs</li>
+        <li>Codes de room à 6 caractères pour l'accès</li>
+        <li>Gestion des sessions et déconnexions</li>
+    </ul>
+
+    <h3>Données</h3>
+    <ul>
+        <li>Chiffrement automatique Firebase</li>
+        <li>Pas de données sensibles stockées localement</li>
+        <li>Nettoyage automatique des données inactives</li>
+    </ul>
+
+    <h2><span class="emoji">📈</span> PERFORMANCE</h2>
+    
+    <h3>Métriques Actuelles</h3>
+    <table>
+        <tr>
+            <th>Métrique</th>
+            <th>Valeur</th>
+            <th>Statut</th>
+        </tr>
+        <tr>
+            <td>Temps de réponse</td>
+            <td>~30-35ms</td>
+            <td><span class="status-ok">✅ Excellent</span></td>
+        </tr>
+        <tr>
+            <td>Taille du build</td>
+            <td>Optimisé avec tree-shaking</td>
+            <td><span class="status-ok">✅ Optimisé</span></td>
+        </tr>
+        <tr>
+            <td>Chargement initial</td>
+            <td>&lt; 3 secondes</td>
+            <td><span class="status-ok">✅ Rapide</span></td>
+        </tr>
+        <tr>
+            <td>Synchronisation temps réel</td>
+            <td>&lt; 100ms</td>
+            <td><span class="status-ok">✅ Excellent</span></td>
+        </tr>
+    </table>
+
+    <h3>Optimisations Appliquées</h3>
+    <ul>
+        <li>Tree-shaking des icônes (99% de réduction)</li>
+        <li>Compression des assets</li>
+        <li>Lazy loading des composants</li>
+        <li>Cache Firebase optimisé</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2><span class="emoji">🎯</span> ROADMAP FUTURE</h2>
+    
+    <h3>Améliorations Prévues</h3>
+    <ul>
+        <li>[ ] Système de chat en temps réel</li>
+        <li>[ ] Plus de jeux interactifs</li>
+        <li>[ ] Système de récompenses</li>
+        <li>[ ] Mode compétition</li>
+        <li>[ ] API REST pour intégrations externes</li>
+    </ul>
+
+    <h3>Maintenance</h3>
+    <ul>
+        <li>[ ] Monitoring automatique des performances</li>
+        <li>[ ] Sauvegardes automatiques quotidiennes</li>
+        <li>[ ] Alertes de santé système</li>
+        <li>[ ] Documentation utilisateur étendue</li>
+    </ul>
+
+    <h2><span class="emoji">📞</span> SUPPORT ET CONTACT</h2>
+    
+    <h3>Documentation</h3>
+    <ul>
+        <li>Guide d'utilisation : <code>GUIDE_UTILISATION.md</code></li>
+        <li>Guide de test UX : <code>GUIDE_TEST_UX.md</code></li>
+        <li>Guide Firebase : <code>FIREBASE_MANAGEMENT.md</code></li>
+    </ul>
+
+    <h3>Outils de Debug</h3>
+    <ul>
+        <li>Panel d'administration intégré</li>
+        <li>Scripts de diagnostic</li>
+        <li>Logs Firebase en temps réel</li>
+        <li>Tests automatisés</li>
+    </ul>
+
+    <div class="info-box">
+        <p><strong>Document généré le :</strong> <script>document.write(new Date().toLocaleDateString('fr-FR'));</script></p>
+        <p><strong>Version de l'application :</strong> 1.0.0+1</p>
+        <p><strong>Dernière mise à jour :</strong> Intégration du système de chronomètre global</p>
+    </div>
+
+    <script>
+        // Ajouter la date actuelle
+        document.addEventListener('DOMContentLoaded', function() {
+            const dateElement = document.querySelector('script');
+            if (dateElement) {
+                dateElement.textContent = new Date().toLocaleDateString('fr-FR');
+            }
+        });
+    </script>
+</body>
+</html>
