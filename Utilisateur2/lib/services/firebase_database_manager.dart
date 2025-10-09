@@ -16,6 +16,12 @@ class FirebaseDatabaseManager {
   FirebaseDatabase? _database;
   FirebaseAuth? _auth;
   bool _isInitialized = false;
+  
+  // Controllers pour les streams
+  StreamController<Map<String, dynamic>>? _roomStateController;
+  StreamController<List<Map<String, dynamic>>>? _availableRoomsController;
+  StreamSubscription? _roomSubscription;
+  StreamSubscription? _availableRoomsSubscription;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -576,7 +582,7 @@ class FirebaseDatabaseManager {
     });
     
     // Combiner les streams
-    await for (final event in Stream.merge([roomsController.stream, playersController.stream])) {
+    await for (final event in Stream.fromIterable([roomsController.stream, playersController.stream]).asyncExpand((stream) => stream)) {
       yield event;
     }
   }

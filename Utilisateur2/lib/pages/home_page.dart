@@ -8,6 +8,7 @@ import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
 import 'firebase_admin_panel.dart';
+import 'working_multiplayer_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
