@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
-import 'pages/stress_page.dart';
-import 'pages/home_page.dart';
-import 'pages/room_management_page.dart';
-import 'pages/modern_stress_home_page.dart';
-import 'pages/simple_home_page.dart';
-import 'pages/game_menu_home_page.dart';
-import 'pages/enhanced_game_menu_page.dart';
 import 'pages/eco_stress_home_page.dart';
-import 'services/firebase_service.dart';
+import 'pages/fallback_home_page.dart';
+import 'pages/stress_page.dart';
+import 'services/firebase_multiplayer_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await FirebaseService.initialize();
-  runApp(const MyApp());
+  
+  bool firebaseInitialized = false;
+  try {
+    await FirebaseMultiplayerService().initialize();
+    firebaseInitialized = true;
+  } catch (e) {
+    print('Firebase initialization failed: $e');
+    // Continue même si Firebase échoue
+  }
+  
+  runApp(MyApp(firebaseInitialized: firebaseInitialized));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool firebaseInitialized;
+  
+  const MyApp({super.key, required this.firebaseInitialized});
 
   // This widget is the root of your application.
   @override
@@ -52,7 +58,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const EcoStressHomePage(),
+      home: firebaseInitialized ? const EcoStressHomePage() : const FallbackHomePage(),
       debugShowCheckedModeBanner: false,
     );
   }

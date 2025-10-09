@@ -9,7 +9,7 @@ import 'page3_crossword.dart';
 import 'page4_tram.dart';
 import 'page5_notifications.dart';
 import 'page5_success.dart';
-import 'enhanced_room_page.dart';
+import 'working_multiplayer_page.dart';
 import 'final_score_page.dart';
 
 class EcoStressHomePage extends StatefulWidget {
@@ -651,7 +651,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     try {
       _scoreService.startPage('Multijoueur');
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const EnhancedRoomPage()),
+        MaterialPageRoute(builder: (_) => const WorkingMultiplayerPage()),
       ).then((_) {
         _scoreService.endPage('Multijoueur');
       });
