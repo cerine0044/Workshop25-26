@@ -67,20 +67,11 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
     try {
       print('🔄 Rafraîchissement des données de la room...');
       
-      // Forcer une mise à jour de la room actuelle
-      if (_multiplayerService.currentRoomId != null) {
-        // Le service Firebase devrait automatiquement mettre à jour le stream
-        // Mais on peut aussi forcer une vérification
-        _showSuccessMessage('Actualisation en cours...');
-        
-        // Attendre un peu pour que la mise à jour se propage
-        await Future.delayed(const Duration(milliseconds: 500));
-        
-        if (mounted) {
-          _showSuccessMessage('Données actualisées');
-        }
-      } else {
-        _showErrorMessage('Aucune room active');
+      // Utiliser la méthode du service Firebase pour forcer le rafraîchissement
+      await _multiplayerService.refreshRoomData();
+      
+      if (mounted) {
+        _showSuccessMessage('Données actualisées');
       }
     } catch (e) {
       print('❌ Erreur rafraîchissement room: $e');
