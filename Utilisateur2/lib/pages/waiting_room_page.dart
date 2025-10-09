@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/firebase_multiplayer_service.dart';
+import '../widgets/chat_widget.dart';
 
 class WaitingRoomPage extends StatefulWidget {
   final String roomCode;
@@ -27,6 +28,7 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
   bool _isLoading = false;
   String? _errorMessage;
   String? _successMessage;
+  bool _showChat = false;
   
   // Animations
   late AnimationController _pulseController;
@@ -253,54 +255,78 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
         centerTitle: true,
         actions: [
           IconButton(
+            icon: Icon(
+              _showChat ? Icons.chat : Icons.chat_bubble_outline,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                _showChat = !_showChat;
+              });
+              HapticFeedback.lightImpact();
+            },
+            tooltip: _showChat ? 'Masquer le chat' : 'Afficher le chat',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _refreshRoomData,
             tooltip: 'Actualiser',
           ),
         ],
       ),
-      body: AnimatedBuilder(
-        animation: _fadeAnimation,
-        builder: (context, child) {
-          return FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    // Messages de statut
-                    if (_errorMessage != null)
-                      _buildStatusMessage(_errorMessage!, Colors.red),
-                    if (_successMessage != null)
-                      _buildStatusMessage(_successMessage!, Colors.green),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Informations de la room
-                    _buildRoomInfo(),
-                    
-                    const SizedBox(height: 30),
-                    
-                    // Animation d'attente
-                    _buildWaitingAnimation(),
-                    
-                    const SizedBox(height: 30),
-                    
-                    // Liste des joueurs
-                    _buildPlayersList(playerList),
-                    
-                    const SizedBox(height: 30),
-                    
-                    // Boutons d'action
-                    _buildActionButtons(playerCount, maxPlayers),
-                  ],
-                ),
-              ),
+      body: Column(
+        children: [
+          // Contenu principal
+          Expanded(
+            child: AnimatedBuilder(
+              animation: _fadeAnimation,
+              builder: (context, child) {
+                return FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          // Messages de statut
+                          if (_errorMessage != null)
+                            _buildStatusMessage(_errorMessage!, Colors.red),
+                          if (_successMessage != null)
+                            _buildStatusMessage(_successMessage!, Colors.green),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // Informations de la room
+                          _buildRoomInfo(),
+                          
+                          const SizedBox(height: 30),
+                          
+                          // Animation d'attente
+                          _buildWaitingAnimation(),
+                          
+                          const SizedBox(height: 30),
+                          
+                          // Liste des joueurs
+                          _buildPlayersList(playerList),
+                          
+                          const SizedBox(height: 30),
+                          
+                          // Boutons d'action
+                          _buildActionButtons(playerCount, maxPlayers),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+          
+          // Chat widget
+          if (_showChat)
+            _buildChatWidget(),
+        ],
       ),
     );
   }
@@ -640,6 +666,32 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildChatWidget() {
+    // Obtenir les informations du joueur actuel
+    final players = _currentRoom?['players'] as Map<String, dynamic>? ?? {};
+    String? currentPlayerId;
+    String? currentPlayerName;
+    
+    // Trouver le joueur actuel
+    players.forEach((playerId, playerData) {
+      if (playerData is Map && playerData['isCurrentPlayer'] == true) {
+        currentPlayerId = playerId;
+        currentPlayerName = playerData['name'];
+      }
+    });
+    
+    // Si pas trouvé, utiliser les valeurs par défaut
+    currentPlayerId ??= 'player_${DateTime.now().millisecondsSinceEpoch}';
+    currentPlayerName ??= widget.isHost ? 'Hôte' : 'Joueur';
+    
+    return ChatWidget(
+      roomCode: widget.roomCode,
+      playerId: currentPlayerId!,
+      playerName: currentPlayerName!,
+      isHost: widget.isHost,
     );
   }
 }
