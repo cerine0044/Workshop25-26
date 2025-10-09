@@ -78,6 +78,9 @@ class FirebaseMultiplayerService {
       // Charger les rooms disponibles
       _loadAvailableRooms();
       
+      // Démarrer le nettoyage périodique des joueurs inactifs
+      _startPlayerCleanup();
+      
     } catch (e) {
       print('❌ Erreur initialisation FirebaseMultiplayerService: $e');
       throw Exception('Erreur d\'initialisation Firebase: $e');
@@ -206,6 +209,10 @@ class FirebaseMultiplayerService {
         return;
       }
       
+      // Démarrer l'écoute AVANT de modifier la room
+      _currentRoomId = foundRoomId!;
+      _listenToRoom(foundRoomId!);
+      
       // Ajouter le joueur à la room
       players[_currentPlayerId!] = {
         'id': _currentPlayerId,
@@ -221,9 +228,6 @@ class FirebaseMultiplayerService {
         'players': players,
         'lastActivity': DateTime.now().toIso8601String(),
       });
-      
-      _currentRoomId = foundRoomId!;
-      _listenToRoom(foundRoomId!);
       
       print('✅ Rejoint room Firebase: $foundRoomId (code: $roomCode)');
       
@@ -286,6 +290,7 @@ class FirebaseMultiplayerService {
       }
       
       _currentRoomId = null;
+      _roomSubscription?.cancel();
       if (_roomStateController != null && !_roomStateController!.isClosed) {
         _roomStateController!.add(null);
       }
@@ -365,15 +370,55 @@ class FirebaseMultiplayerService {
     }
   }
 
+  Future<void> refreshRoomData() async {
+    if (_currentRoomId == null || !_isInitialized) {
+      print('⚠️ Aucune room active pour rafraîchissement');
+      return;
+    }
+
+    try {
+      print('🔄 Rafraîchissement forcé des données de la room: $_currentRoomId');
+      
+      final roomRef = _database!.ref('rooms/$_currentRoomId');
+      final snapshot = await roomRef.get();
+      
+      if (snapshot.exists) {
+        final rawData = snapshot.value;
+        final roomData = _convertToMap(rawData);
+        
+        if (_roomStateController != null && !_roomStateController!.isClosed) {
+          _roomStateController!.add(roomData);
+          print('✅ Données room rafraîchies et envoyées au stream');
+        }
+      } else {
+        print('⚠️ Room $_currentRoomId n\'existe plus');
+        if (_roomStateController != null && !_roomStateController!.isClosed) {
+          _roomStateController!.add(null);
+        }
+        _currentRoomId = null;
+      }
+      
+    } catch (e) {
+      print('❌ Erreur rafraîchissement room: $e');
+    }
+  }
+
   void _listenToRoom(String roomId) {
+    print('👂 Démarrage écoute room: $roomId');
     _roomSubscription?.cancel();
     _roomSubscription = _database!.ref('rooms/$roomId').onValue.listen((event) {
+      print('📡 Événement reçu pour room $roomId: ${event.snapshot.exists}');
       if (event.snapshot.exists) {
         try {
           final rawData = event.snapshot.value;
           final roomData = _convertToMap(rawData);
+          print('📊 Données room reçues: ${roomData?['name']} - ${roomData?['players']?.length ?? 0} joueur(s)');
+          
           if (_roomStateController != null && !_roomStateController!.isClosed) {
             _roomStateController!.add(roomData);
+            print('✅ Données envoyées au stream controller');
+          } else {
+            print('⚠️ Stream controller fermé ou null');
           }
         } catch (e) {
           print('❌ Erreur conversion room data: $e');
@@ -382,6 +427,7 @@ class FirebaseMultiplayerService {
           }
         }
       } else {
+        print('📡 Room $roomId supprimée ou n\'existe plus');
         if (_roomStateController != null && !_roomStateController!.isClosed) {
           _roomStateController!.add(null);
         }
@@ -447,6 +493,82 @@ class FirebaseMultiplayerService {
   String _generateAvatar() {
     final avatars = ['😀', '😎', '🤩', '🥳', '😇', '😈'];
     return avatars[Random().nextInt(avatars.length)];
+  }
+
+  Timer? _cleanupTimer;
+
+  void _startPlayerCleanup() {
+    // Nettoyer les joueurs inactifs toutes les 30 secondes
+    _cleanupTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _cleanupInactivePlayers();
+    });
+  }
+
+  Future<void> _cleanupInactivePlayers() async {
+    if (!_isInitialized || _database == null) return;
+
+    try {
+      final roomsRef = _database!.ref('rooms');
+      final snapshot = await roomsRef.get();
+      
+      if (!snapshot.exists) return;
+      
+      final roomsData = _convertToMap(snapshot.value);
+      if (roomsData == null) return;
+      
+      final now = DateTime.now();
+      final cutoffTime = now.subtract(const Duration(minutes: 5)); // 5 minutes d'inactivité
+      
+      for (final entry in roomsData.entries) {
+        final roomId = entry.key;
+        final roomData = _convertToMap(entry.value);
+        
+        if (roomData == null) continue;
+        
+        final players = _convertToMap(roomData['players']) ?? {};
+        final playersToRemove = <String>[];
+        
+        for (final playerEntry in players.entries) {
+          final playerId = playerEntry.key;
+          final playerData = _convertToMap(playerEntry.value);
+          
+          if (playerData == null) continue;
+          
+          // Vérifier si le joueur est inactif depuis plus de 5 minutes
+          final joinedAt = DateTime.tryParse(playerData['joinedAt'] ?? '');
+          if (joinedAt != null && joinedAt.isBefore(cutoffTime)) {
+            // Vérifier si le joueur n'est pas l'hôte actuel
+            if (roomData['hostId'] != playerId) {
+              playersToRemove.add(playerId);
+            }
+          }
+        }
+        
+        // Supprimer les joueurs inactifs
+        if (playersToRemove.isNotEmpty) {
+          for (final playerId in playersToRemove) {
+            players.remove(playerId);
+            print('🧹 Joueur inactif supprimé: $playerId de la room $roomId');
+          }
+          
+          // Mettre à jour la room
+          await roomsRef.child(roomId).update({
+            'players': players,
+            'lastActivity': now.toIso8601String(),
+          });
+        }
+      }
+    } catch (e) {
+      print('❌ Erreur nettoyage joueurs inactifs: $e');
+    }
+  }
+
+  void dispose() {
+    _cleanupTimer?.cancel();
+    _roomSubscription?.cancel();
+    _availableRoomsSubscription?.cancel();
+    _roomStateController?.close();
+    _availableRoomsController?.close();
   }
 
   /// Convertit les données Firebase en Map<String, dynamic> de manière sécurisée

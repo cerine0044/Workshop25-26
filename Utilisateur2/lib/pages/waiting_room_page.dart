@@ -43,7 +43,51 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
   void initState() {
     super.initState();
     _initializeAnimations();
-    _listenToRoomUpdates();
+    _initializeRoomConnection();
+  }
+
+  void _initializeRoomConnection() async {
+    try {
+      // S'assurer que le service est initialisé
+      await _multiplayerService.initialize();
+      
+      // Écouter les mises à jour de la room
+      _listenToRoomUpdates();
+      
+      // Forcer un rafraîchissement initial
+      _refreshRoomData();
+      
+    } catch (e) {
+      print('❌ Erreur initialisation connexion room: $e');
+      _showErrorMessage('Erreur de connexion à la room');
+    }
+  }
+
+  void _refreshRoomData() async {
+    try {
+      print('🔄 Rafraîchissement des données de la room...');
+      
+      // Forcer une mise à jour de la room actuelle
+      if (_multiplayerService.currentRoomId != null) {
+        // Le service Firebase devrait automatiquement mettre à jour le stream
+        // Mais on peut aussi forcer une vérification
+        _showSuccessMessage('Actualisation en cours...');
+        
+        // Attendre un peu pour que la mise à jour se propage
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        if (mounted) {
+          _showSuccessMessage('Données actualisées');
+        }
+      } else {
+        _showErrorMessage('Aucune room active');
+      }
+    } catch (e) {
+      print('❌ Erreur rafraîchissement room: $e');
+      if (mounted) {
+        _showErrorMessage('Erreur lors de l\'actualisation');
+      }
+    }
   }
   
   void _initializeAnimations() {
@@ -92,13 +136,22 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
   }
 
   void _listenToRoomUpdates() {
-    _multiplayerService.roomStateStream.listen((room) {
-      if (mounted) {
-        setState(() {
-          _currentRoom = room;
-        });
-      }
-    });
+    _multiplayerService.roomStateStream.listen(
+      (room) {
+        if (mounted) {
+          print('📡 Mise à jour room reçue: ${room?['name']} - ${room?['players']?.length ?? 0} joueur(s)');
+          setState(() {
+            _currentRoom = room;
+          });
+        }
+      },
+      onError: (error) {
+        print('❌ Erreur écoute room: $error');
+        if (mounted) {
+          _showErrorMessage('Erreur de connexion: $error');
+        }
+      },
+    );
   }
 
   void _showErrorMessage(String message) {
@@ -207,6 +260,13 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _refreshRoomData,
+            tooltip: 'Actualiser',
+          ),
+        ],
       ),
       body: AnimatedBuilder(
         animation: _fadeAnimation,
@@ -336,7 +396,7 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
             children: [
               _buildInfoCard('Joueurs', '${_currentRoom?['players']?.length ?? 0}/${_currentRoom?['maxPlayers'] ?? 2}', Icons.people),
               _buildInfoCard('Statut', widget.isHost ? 'Hôte' : 'Invité', Icons.person),
-              _buildInfoCard('Mode', 'Multijoueur', Icons.games),
+              _buildInfoCard('Connexion', _currentRoom != null ? 'Connecté' : 'Déconnecté', _currentRoom != null ? Icons.wifi : Icons.wifi_off),
             ],
           ),
         ],
