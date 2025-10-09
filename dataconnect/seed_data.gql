@@ -1,0 +1,108 @@
+mutation CreateDemoData @transaction @auth(level: USER) {
+  user_insertMany(
+    data: [
+      {
+        id: "550e8400-e29b-41d4-a716-446655440000"
+        displayName: "demouser1"
+        email: "demouser1@example.com"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+      {
+        id: "550e8400-e29b-41d4-a716-446655440001"
+        displayName: "demouser2"
+        email: "demouser2@example.com"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+    ]
+  )
+  stakeholder_insertMany(
+    data: [
+      {
+        id: "650e8400-e29b-41d4-a716-446655440000"
+        name: "demostakeholder1"
+        type: "type1"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+      {
+        id: "650e8400-e29b-41d4-a716-446655440001"
+        name: "demostakeholder2"
+        type: "type2"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+    ]
+  )
+  contract_insertMany(
+    data: [
+      {
+        id: "750e8400-e29b-41d4-a716-446655440000"
+        userId: "550e8400-e29b-41d4-a716-446655440000"
+        stakeholderId: "650e8400-e29b-41d4-a716-446655440000"
+        title: "democontract1"
+        status: "status1"
+        startDate: "2024-04-01"
+        endDate: "2024-04-30"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+      {
+        id: "750e8400-e29b-41d4-a716-446655440001"
+        userId: "550e8400-e29b-41d4-a716-446655440001"
+        stakeholderId: "650e8400-e29b-41d4-a716-446655440001"
+        title: "democontract2"
+        status: "status2"
+        startDate: "2024-04-01"
+        endDate: "2024-04-30"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+    ]
+  )
+  task_insertMany(
+    data: [
+      {
+        id: "850e8400-e29b-41d4-a716-446655440000"
+        userId: "550e8400-e29b-41d4-a716-446655440000"
+        stakeholderId: "650e8400-e29b-41d4-a716-446655440000"
+        contractId: "750e8400-e29b-41d4-a716-446655440000"
+        description: "demotask1"
+        status: "status1"
+        dueDate: "2024-04-15T00:00:00Z"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+      {
+        id: "850e8400-e29b-41d4-a716-446655440001"
+        userId: "550e8400-e29b-41d4-a716-446655440001"
+        stakeholderId: "650e8400-e29b-41d4-a716-446655440001"
+        contractId: "750e8400-e29b-41d4-a716-446655440001"
+        description: "demotask2"
+        status: "status2"
+        dueDate: "2024-04-15T00:00:00Z"
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+    ]
+  )
+  notification_insertMany(
+    data: [
+      {
+        id: "950e8400-e29b-41d4-a716-446655440000"
+        userId: "550e8400-e29b-41d4-a716-446655440000"
+        stakeholderId: "650e8400-e29b-41d4-a716-446655440000"
+        contractId: "750e8400-e29b-41d4-a716-446655440000"
+        taskId: "850e8400-e29b-41d4-a716-446655440000"
+        message: "demomessage1"
+        type: "type1"
+        isRead: false
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+      {
+        id: "950e8400-e29b-41d4-a716-446655440001"
+        userId: "550e8400-e29b-41d4-a716-446655440001"
+        stakeholderId: "650e8400-e29b-41d4-a716-446655440001"
+        contractId: "750e8400-e29b-41d4-a716-446655440001"
+        taskId: "850e8400-e29b-41d4-a716-446655440001"
+        message: "demomessage2"
+        type: "type2"
+        isRead: false
+        createdAt: "2024-04-01T00:00:00Z"
+      }
+    ]
+  )
+}
