@@ -76,6 +76,15 @@ class _GameTimerWidgetState extends State<GameTimerWidget> {
               fontFamily: 'monospace',
             ),
           ),
+          const SizedBox(width: 4),
+          Text(
+            '(Total)',
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: (widget.fontSize ?? 16) * 0.7,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
         ],
       ),
     );

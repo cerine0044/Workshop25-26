@@ -1176,11 +1176,18 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     );
   }
   
-  void _navigateToPage(String pageName, Widget page) {
+  void _navigateToPage(String pageName, Widget page) async {
     HapticFeedback.lightImpact();
     
     // Démarrer le tracking automatique du jeu
     _scoreService.startPage(pageName);
+    
+    // Démarrer la session globale si ce n'est pas déjà fait
+    final GameStatsService statsService = GameStatsService();
+    if (!statsService.isGlobalSessionActive) {
+      final playerName = statsService.currentPlayerName ?? 'Joueur';
+      statsService.startGlobalGameSession(playerName: playerName, gameMode: 'solo');
+    }
     
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => page),
@@ -1202,6 +1209,13 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     _rotationController.dispose();
     _stressTimer?.cancel();
     _glitchTimer?.cancel();
+    
+    // Terminer la session globale si elle est active
+    final GameStatsService statsService = GameStatsService();
+    if (statsService.isGlobalSessionActive) {
+      statsService.endGlobalGameSession();
+    }
+    
     super.dispose();
   }
   

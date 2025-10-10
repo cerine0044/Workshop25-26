@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/firebase_leaderboard_service.dart';
+import '../services/firebase_history_service.dart';
 import 'global_history_page.dart';
 
 class GlobalScoresPage extends StatefulWidget {
@@ -10,64 +10,81 @@ class GlobalScoresPage extends StatefulWidget {
 }
 
 class _GlobalScoresPageState extends State<GlobalScoresPage> {
-  final FirebaseLeaderboardService _leaderboardService = FirebaseLeaderboardService();
-  List<LeaderboardEntry> _players = [];
+  final FirebaseHistoryService _historyService = FirebaseHistoryService();
+  List<GameSessionHistory> _sessions = [];
   bool _isLoading = true;
-  String _sortBy = 'averageScore';
+  String _sortBy = 'duration'; // duration, score, playerName, gameRoom
   String _gameModeFilter = 'all'; // all, solo, multiplayer
 
   @override
   void initState() {
     super.initState();
-    _loadPlayers();
+    _loadSessions();
   }
 
-  Future<void> _loadPlayers() async {
+  Future<void> _loadSessions() async {
     try {
       setState(() => _isLoading = true);
       
-      await _leaderboardService.initialize();
+      await _historyService.initialize();
       
-      _leaderboardService.leaderboardStream.listen((players) {
+      // Charger toutes les sessions d'abord
+      final allSessions = await _historyService.getRecentSessions(limit: 1000);
+      if (mounted) {
+        setState(() {
+          _sessions = allSessions;
+          _isLoading = false;
+        });
+        _sortSessions();
+      }
+      
+      // Puis écouter les mises à jour en temps réel
+      _historyService.historyStream.listen((sessions) {
         if (mounted) {
           setState(() {
-            _players = players;
-            _isLoading = false;
+            _sessions = sessions;
           });
+          _sortSessions();
         }
       });
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        debugPrint('❌ Erreur chargement scores globaux: $e');
+        debugPrint('❌ Erreur chargement sessions: $e');
       }
     }
   }
 
-  void _sortPlayers() {
+  void _sortSessions() {
     setState(() {
       switch (_sortBy) {
-        case 'averageScore':
-          _players.sort((a, b) => b.averageScore.compareTo(a.averageScore));
+        case 'duration':
+          _sessions.sort((a, b) => a.duration.compareTo(b.duration));
           break;
-        case 'totalSessions':
-          _players.sort((a, b) => b.totalSessions.compareTo(a.totalSessions));
+        case 'score':
+          _sessions.sort((a, b) => (b.score ?? 0).compareTo(a.score ?? 0));
           break;
-        case 'bestTime':
-          _players.sort((a, b) => a.bestTime.inMilliseconds.compareTo(b.bestTime.inMilliseconds));
+        case 'playerName':
+          _sessions.sort((a, b) => a.playerName.compareTo(b.playerName));
+          break;
+        case 'gameRoom':
+          _sessions.sort((a, b) => a.gameRoom.compareTo(b.gameRoom));
+          break;
+        case 'startTime':
+          _sessions.sort((a, b) => b.startTime.compareTo(a.startTime));
           break;
       }
     });
   }
 
-  List<LeaderboardEntry> _getFilteredPlayers() {
-    if (_gameModeFilter == 'all') return _players;
+  List<GameSessionHistory> _getFilteredSessions() {
+    if (_gameModeFilter == 'all') return _sessions;
     
-    return _players.where((player) {
+    return _sessions.where((session) {
       if (_gameModeFilter == 'solo') {
-        return player.gameMode == 'solo' || player.gameMode == null;
+        return session.gameMode == 'solo';
       } else if (_gameModeFilter == 'multiplayer') {
-        return player.gameMode == 'multiplayer';
+        return session.gameMode == 'multiplayer';
       }
       return true;
     }).toList();
@@ -75,11 +92,11 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
 
   @override
   Widget build(BuildContext context) {
-    final filteredPlayers = _getFilteredPlayers();
+    final filteredSessions = _getFilteredSessions();
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🏆 Scores Globaux'),
+        title: const Text('🏆 Toutes les Sessions'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         actions: [
@@ -120,6 +137,30 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                // Compteur de sessions
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.deepPurple.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.games, color: Colors.deepPurple, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${filteredSessions.length} session${filteredSessions.length > 1 ? 's' : ''} affiché${filteredSessions.length != _sessions.length ? ' sur ${_sessions.length}' : ''}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
                 // Tri
                 Row(
                   children: [
@@ -128,11 +169,15 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
                     Expanded(
                       child: Row(
                         children: [
-                          _buildSortChip('Score Moyen', 'averageScore'),
+                          _buildSortChip('Temps Session', 'duration'),
                           const SizedBox(width: 8),
-                          _buildSortChip('Sessions', 'totalSessions'),
+                          _buildSortChip('Score', 'score'),
                           const SizedBox(width: 8),
-                          _buildSortChip('Temps', 'bestTime'),
+                          _buildSortChip('Joueur', 'playerName'),
+                          const SizedBox(width: 8),
+                          _buildSortChip('Salle', 'gameRoom'),
+                          const SizedBox(width: 8),
+                          _buildSortChip('Date', 'startTime'),
                         ],
                       ),
                     ),
@@ -157,32 +202,32 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildStatCard('Joueurs', '${filteredPlayers.length}', Icons.people),
-                _buildStatCard('Sessions Solo', '${filteredPlayers.where((p) => p.gameMode == 'solo' || p.gameMode == null).length}', Icons.person),
-                _buildStatCard('Sessions Multi', '${filteredPlayers.where((p) => p.gameMode == 'multiplayer').length}', Icons.group),
-                _buildStatCard('En Ligne', '${filteredPlayers.where((p) => p.isOnline).length}', Icons.circle, Colors.green),
+                _buildStatCard('Sessions', '${filteredSessions.length}', Icons.games),
+                _buildStatCard('Solo', '${filteredSessions.where((s) => s.gameMode == 'solo').length}', Icons.person),
+                _buildStatCard('Multi', '${filteredSessions.where((s) => s.gameMode == 'multiplayer').length}', Icons.group),
+                _buildStatCard('Réussies', '${filteredSessions.where((s) => s.completed).length}', Icons.check_circle, Colors.green),
               ],
             ),
           ),
           
           const SizedBox(height: 16),
           
-          // Liste des joueurs
+          // Liste des sessions
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
-                : filteredPlayers.isEmpty
+                : filteredSessions.isEmpty
                     ? const Center(
                         child: Text(
-                          'Aucun joueur trouvé',
+                          'Aucune session trouvée',
                           style: TextStyle(fontSize: 18, color: Colors.grey),
                         ),
                       )
                     : ListView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: filteredPlayers.length,
+                        itemCount: filteredSessions.length,
                         itemBuilder: (context, index) {
-                          final player = filteredPlayers[index];
+                          final session = filteredSessions[index];
                           final isTopThree = index < 3;
                           
                           return Container(
@@ -207,23 +252,24 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: isTopThree ? Colors.deepPurple : Colors.grey,
+                                    color: isTopThree ? Colors.deepPurple : Colors.grey.shade300,
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(
                                     child: Text(
                                       '${index + 1}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: isTopThree ? Colors.white : Colors.black,
                                         fontWeight: FontWeight.bold,
                                         fontSize: 16,
                                       ),
                                     ),
                                   ),
                                 ),
+                                
                                 const SizedBox(width: 16),
                                 
-                                // Informations joueur
+                                // Informations de la session
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -231,78 +277,101 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
                                       Row(
                                         children: [
                                           Text(
-                                            player.playerName,
-                                            style: TextStyle(
+                                            session.playerName,
+                                            style: const TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 18,
-                                              color: isTopThree ? Colors.deepPurple : Colors.black87,
+                                              fontSize: 16,
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
-                                          if (player.isOnline)
-                                            Container(
-                                              width: 10,
-                                              height: 10,
-                                              decoration: const BoxDecoration(
-                                                color: Colors.green,
-                                                shape: BoxShape.circle,
-                                              ),
-                                            ),
                                           const SizedBox(width: 8),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: player.gameMode == 'multiplayer' ? Colors.blue.shade100 : Colors.orange.shade100,
+                                              color: session.gameMode == 'multiplayer' 
+                                                  ? Colors.blue.shade100 
+                                                  : Colors.orange.shade100,
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Text(
-                                              player.gameMode == 'multiplayer' ? 'Multi' : 'Solo',
+                                              session.gameMode == 'multiplayer' ? 'Multi' : 'Solo',
                                               style: TextStyle(
-                                                fontSize: 10,
+                                                color: session.gameMode == 'multiplayer' 
+                                                    ? Colors.blue.shade800 
+                                                    : Colors.orange.shade800,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.bold,
-                                                color: player.gameMode == 'multiplayer' ? Colors.blue.shade800 : Colors.orange.shade800,
                                               ),
                                             ),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        session.gameRoom,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
                                       Row(
                                         children: [
-                                          Icon(Icons.games, size: 16, color: Colors.grey[600]),
+                                          Icon(
+                                            session.completed ? Icons.check_circle : Icons.cancel,
+                                            color: session.completed ? Colors.green : Colors.red,
+                                            size: 16,
+                                          ),
                                           const SizedBox(width: 4),
-                                          Text('${player.totalSessions} sessions', style: TextStyle(color: Colors.grey[600])),
-                                          const SizedBox(width: 16),
-                                          Icon(Icons.check_circle, size: 16, color: Colors.grey[600]),
-                                          const SizedBox(width: 4),
-                                          Text('${player.completedSessions} réussies', style: TextStyle(color: Colors.grey[600])),
+                                          Text(
+                                            session.completed ? 'Réussie' : 'Échouée',
+                                            style: TextStyle(
+                                              color: session.completed ? Colors.green : Colors.red,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ],
                                   ),
                                 ),
                                 
-                                // Score principal
+                                // Temps et score
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
-                                      _sortBy == 'averageScore' 
-                                        ? '${player.averageScore.toStringAsFixed(1)} pts'
-                                        : _sortBy == 'totalSessions'
-                                          ? '${player.totalSessions}'
-                                          : '${player.bestTime.inMinutes}m ${player.bestTime.inSeconds % 60}s',
-                                      style: TextStyle(
+                                      _formatDuration(session.duration),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                        color: isTopThree ? Colors.deepPurple : Colors.black87,
+                                        fontSize: 16,
+                                        color: Colors.deepPurple,
                                       ),
                                     ),
-                                    if (_sortBy != 'averageScore')
-                                      Text(
-                                        'Score: ${player.averageScore.toStringAsFixed(1)}',
-                                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Score: ${session.score ?? 0}',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 14,
                                       ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatDateTime(session.startTime),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade500,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _formatFullDate(session.startTime),
+                                      style: TextStyle(
+                                        color: Colors.grey.shade400,
+                                        fontSize: 10,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -320,19 +389,22 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
     final isSelected = _gameModeFilter == value;
     return GestureDetector(
       onTap: () {
-        setState(() => _gameModeFilter = value);
+        setState(() {
+          _gameModeFilter = value;
+        });
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple : Colors.grey.shade200,
+          color: isSelected ? Colors.deepPurple : Colors.white,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.deepPurple),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.white : Colors.deepPurple,
+            fontWeight: FontWeight.bold,
             fontSize: 12,
           ),
         ),
@@ -344,48 +416,99 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
     final isSelected = _sortBy == value;
     return GestureDetector(
       onTap: () {
-        setState(() => _sortBy = value);
-        _sortPlayers();
+        setState(() {
+          _sortBy = value;
+        });
+        _sortSessions();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.deepPurple : Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? Colors.deepPurple : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.deepPurple),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black87,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 12,
+            color: isSelected ? Colors.white : Colors.deepPurple,
+            fontWeight: FontWeight.bold,
+            fontSize: 10,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, [Color? color]) {
+  Widget _buildStatCard(String title, String value, IconData icon, [Color? iconColor]) {
     return Column(
       children: [
-        Icon(icon, color: color ?? Colors.deepPurple, size: 24),
+        Icon(
+          icon,
+          color: iconColor ?? Colors.deepPurple,
+          size: 24,
+        ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
+          style: const TextStyle(
             fontSize: 18,
-            color: color ?? Colors.deepPurple,
+            fontWeight: FontWeight.bold,
+            color: Colors.deepPurple,
           ),
         ),
         Text(
-          label,
+          title,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey[600],
+            color: Colors.grey.shade600,
           ),
         ),
       ],
     );
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${seconds}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
+    }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+    
+    if (difference.inDays > 0) {
+      return '${difference.inDays}j';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours}h';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes}m';
+    } else {
+      return 'Maintenant';
+    }
+  }
+
+  String _formatFullDate(DateTime dateTime) {
+    final months = [
+      'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun',
+      'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'
+    ];
+    
+    final day = dateTime.day.toString().padLeft(2, '0');
+    final month = months[dateTime.month - 1];
+    final year = dateTime.year;
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    
+    return '$day $month $year • $hour:$minute';
   }
 }

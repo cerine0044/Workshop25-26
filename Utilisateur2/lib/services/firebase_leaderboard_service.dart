@@ -90,7 +90,6 @@ class FirebaseLeaderboardService {
       
       _leaderboardSubscription = _database
           .child('leaderboard')
-          .orderByChild('averageScore')
           .onValue
           .listen((event) {
         if (event.snapshot.exists) {
@@ -231,6 +230,36 @@ class FirebaseLeaderboardService {
     } catch (e) {
       if (kDebugMode) {
         print('❌ Erreur récupération top joueurs: $e');
+      }
+      return [];
+    }
+  }
+
+  /// Récupère tous les joueurs du classement
+  Future<List<LeaderboardEntry>> getAllPlayers() async {
+    try {
+      final snapshot = await _database
+          .child('leaderboard')
+          .once();
+
+      if (snapshot.snapshot.exists) {
+        final Map<dynamic, dynamic> data = Map<dynamic, dynamic>.from(snapshot.snapshot.value as Map);
+        final List<LeaderboardEntry> entries = [];
+        
+        data.forEach((key, value) {
+          if (value is Map) {
+            entries.add(LeaderboardEntry.fromMap(Map<String, dynamic>.from(value), key));
+          }
+        });
+        
+        // Trier par score moyen décroissant
+        entries.sort((a, b) => b.averageScore.compareTo(a.averageScore));
+        return entries;
+      }
+      return [];
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Erreur récupération tous joueurs: $e');
       }
       return [];
     }

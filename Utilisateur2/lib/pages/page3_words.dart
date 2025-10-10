@@ -262,7 +262,7 @@ class _Page3WordsState extends State<Page3Words> {
 
   void _checkGameCompletion() {
     final usedCount = _allItems.where((item) => item.used).length;
-    if (usedCount >= _allItems.length * 0.8) { // 80% des mots trouvés
+    if (usedCount >= _allItems.length) { // 100% des mots trouvés
       _endGameSession();
     }
   }
@@ -906,7 +906,9 @@ class _Page3WordsState extends State<Page3Words> {
               ),
               FilledButton(
                 onPressed: _allUsed
-                    ? () => Navigator.pushNamed(context, '/page4_dilemmas')
+                    ? () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const Page4Tram()),
+                        )
                     : null,
                 style: FilledButton.styleFrom(
                   backgroundColor: _allUsed ? Colors.greenAccent.shade400 : Colors.green.shade900,
@@ -914,7 +916,7 @@ class _Page3WordsState extends State<Page3Words> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text('BoutonFinal3'),
+                child: const Text('Salle Suivante'),
               ),
             ],
           ),

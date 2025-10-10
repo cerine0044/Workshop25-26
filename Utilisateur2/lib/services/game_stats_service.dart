@@ -15,6 +15,11 @@ class GameStatsService {
   DateTime? _gameStartTime;
   Duration _currentGameDuration = Duration.zero;
   
+  // Temps global de bout en bout
+  DateTime? _globalGameStartTime;
+  Duration _globalGameDuration = Duration.zero;
+  bool _isGlobalSessionActive = false;
+  
   // Statistiques de session
   String? _currentPlayerName;
   String? _currentGameRoom;
@@ -57,27 +62,46 @@ class GameStatsService {
     }
   }
 
-  /// Démarre le chronomètre pour une nouvelle session de jeu
+  /// Démarre le chronomètre global de bout en bout
+  void startGlobalGameSession({
+    required String playerName,
+    String gameMode = 'solo',
+  }) {
+    if (!_isGlobalSessionActive) {
+      _currentPlayerName = playerName;
+      _currentGameMode = gameMode;
+      _globalGameStartTime = DateTime.now();
+      _globalGameDuration = Duration.zero;
+      _isGlobalSessionActive = true;
+      
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_globalGameStartTime != null) {
+          _globalGameDuration = DateTime.now().difference(_globalGameStartTime!);
+          _notifyDurationListeners();
+        }
+      });
+      
+      debugPrint('🌍 Session globale démarrée: $playerName');
+    }
+  }
+
+  /// Démarre une session individuelle de salle (sans redémarrer le timer global)
   void startGameSession({
     required String playerName,
     required String gameRoom,
     String gameMode = 'solo', // 'solo' ou 'multiplayer'
   }) {
-    _currentPlayerName = playerName;
+    // Si c'est la première salle, démarrer la session globale
+    if (!_isGlobalSessionActive) {
+      startGlobalGameSession(playerName: playerName, gameMode: gameMode);
+    }
+    
     _currentGameRoom = gameRoom;
-    _currentGameMode = gameMode;
     _gameStartTime = DateTime.now();
     _currentGameDuration = Duration.zero;
     
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_gameStartTime != null) {
-        _currentGameDuration = DateTime.now().difference(_gameStartTime!);
-        _notifyDurationListeners();
-      }
-    });
-    
-    debugPrint('🎮 Session démarrée: $playerName dans $gameRoom');
+    debugPrint('🎮 Session de salle démarrée: $playerName dans $gameRoom');
   }
 
   /// Termine la session de jeu et sauvegarde les statistiques
@@ -91,9 +115,7 @@ class GameStatsService {
       return;
     }
 
-    _timer?.cancel();
-    _timer = null;
-
+    // Ne pas arrêter le timer global, seulement la session de salle
     final session = GameSession(
       playerName: _currentPlayerName!,
       gameRoom: _currentGameRoom!,
@@ -117,18 +139,43 @@ class GameStatsService {
     
     debugPrint('🏁 Session terminée: ${session.duration.inSeconds}s - Score: ${score ?? "N/A"}');
     
-    // Reset pour la prochaine session
+    // Reset seulement pour la prochaine salle (pas le timer global)
     _gameStartTime = null;
     _currentGameDuration = Duration.zero;
-    _currentPlayerName = null;
     _currentGameRoom = null;
-    _currentGameMode = null;
+    // Ne pas reset _currentPlayerName et _currentGameMode pour garder la session globale
     
     _notifyStatsListeners();
   }
 
-  /// Obtient la durée actuelle de la session
-  Duration get currentDuration => _currentGameDuration;
+  /// Termine complètement la session globale (appelé quand on quitte le jeu)
+  Future<void> endGlobalGameSession() async {
+    if (_isGlobalSessionActive) {
+      _timer?.cancel();
+      _timer = null;
+      _isGlobalSessionActive = false;
+      _globalGameStartTime = null;
+      _globalGameDuration = Duration.zero;
+      _currentPlayerName = null;
+      _currentGameMode = null;
+      _gameStartTime = null;
+      _currentGameRoom = null;
+      _currentGameDuration = Duration.zero;
+      
+      debugPrint('🌍 Session globale terminée');
+      _notifyDurationListeners();
+      _notifyStatsListeners();
+    }
+  }
+
+  /// Obtient la durée actuelle de la session globale
+  Duration get currentDuration => _isGlobalSessionActive ? _globalGameDuration : Duration.zero;
+
+  /// Obtient la durée de la session de salle actuelle
+  Duration get currentRoomDuration => _currentGameDuration;
+
+  /// Vérifie si une session globale est active
+  bool get isGlobalSessionActive => _isGlobalSessionActive;
 
   /// Obtient le nom du joueur actuel
   String? get currentPlayerName => _currentPlayerName;
@@ -136,8 +183,8 @@ class GameStatsService {
   /// Obtient la salle de jeu actuelle
   String? get currentGameRoom => _currentGameRoom;
 
-  /// Vérifie si une session est active
-  bool get isSessionActive => _gameStartTime != null;
+  /// Vérifie si une session est active (globale ou de salle)
+  bool get isSessionActive => _isGlobalSessionActive;
 
   /// Obtient toutes les sessions complétées
   List<GameSession> get completedSessions => List.unmodifiable(_completedSessions);
