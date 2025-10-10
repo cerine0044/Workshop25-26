@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../firebase_options.dart';
 import 'player_name_service.dart';
+import 'player_persistence_service.dart';
 
 class FirebaseMultiplayerService {
   static final FirebaseMultiplayerService _instance = FirebaseMultiplayerService._internal();
@@ -20,6 +21,7 @@ class FirebaseMultiplayerService {
   String? _currentPlayerName;
   
   final PlayerNameService _playerNameService = PlayerNameService();
+  final PlayerPersistenceService _persistenceService = PlayerPersistenceService();
   
   StreamController<Map<String, dynamic>?>? _roomStateController;
   StreamController<List<Map<String, dynamic>>>? _availableRoomsController;
@@ -68,13 +70,26 @@ class FirebaseMultiplayerService {
       // Initialiser le PlayerNameService d'abord
       await _playerNameService.initialize();
       
+      // Initialiser le service de persistance
+      await _persistenceService.initialize();
+      
       // Récupérer les infos utilisateur
       if (_auth!.currentUser != null) {
         _currentPlayerId = _auth!.currentUser!.uid;
-        _currentPlayerName = _auth!.currentUser!.displayName ?? _playerNameService.getPlayerNameOrDefault();
+        // Utiliser le nom du PlayerNameService en priorité, sinon Firebase Auth
+        _currentPlayerName = _playerNameService.currentPlayerName ?? 
+                           _auth!.currentUser!.displayName ?? 
+                           _playerNameService.getPlayerNameOrDefault();
       } else if (_currentPlayerId == null) {
         _currentPlayerId = _generatePlayerId();
-        _currentPlayerName = _playerNameService.getPlayerNameOrDefault();
+        _currentPlayerName = _playerNameService.currentPlayerName ?? 
+                           _playerNameService.getPlayerNameOrDefault();
+      }
+      
+      // Synchroniser avec PlayerNameService et persistance
+      if (_currentPlayerName != null && _currentPlayerId != null) {
+        await _playerNameService.setPlayerName(_currentPlayerName!);
+        await _persistenceService.syncPlayerData();
       }
       
       _isInitialized = true;
@@ -680,6 +695,9 @@ class FirebaseMultiplayerService {
 
     try {
       _currentPlayerName = newName;
+      
+      // Synchroniser avec PlayerNameService
+      await _playerNameService.setPlayerName(newName);
       
       // Mettre à jour le nom dans la room si on est dans une room
       if (_currentRoomId != null) {
