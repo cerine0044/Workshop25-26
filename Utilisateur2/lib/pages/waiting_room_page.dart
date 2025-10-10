@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/firebase_multiplayer_service.dart';
+import '../services/player_name_service.dart';
 import '../widgets/chat_widget.dart';
 
 class WaitingRoomPage extends StatefulWidget {
@@ -23,6 +24,7 @@ class WaitingRoomPage extends StatefulWidget {
 class _WaitingRoomPageState extends State<WaitingRoomPage>
     with TickerProviderStateMixin {
   final FirebaseMultiplayerService _multiplayerService = FirebaseMultiplayerService();
+  final PlayerNameService _playerNameService = PlayerNameService();
   
   Map<String, dynamic>? _currentRoom;
   bool _isLoading = false;
@@ -46,6 +48,17 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
     super.initState();
     _initializeAnimations();
     _initializeRoomConnection();
+    _updatePlayerName();
+  }
+
+  /// Mettre à jour le nom du joueur depuis PlayerNameService
+  Future<void> _updatePlayerName() async {
+    try {
+      await _playerNameService.initialize();
+      await _multiplayerService.updateCurrentPlayerName();
+    } catch (e) {
+      debugPrint('Erreur mise à jour nom joueur: $e');
+    }
   }
 
   void _initializeRoomConnection() async {
@@ -685,7 +698,7 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
     
     // Si pas trouvé, utiliser les valeurs par défaut
     currentPlayerId ??= 'player_${DateTime.now().millisecondsSinceEpoch}';
-    currentPlayerName ??= widget.isHost ? 'Hôte' : 'Joueur';
+    currentPlayerName ??= _playerNameService.getPlayerNameOrDefault();
     
     return ChatWidget(
       roomCode: widget.roomCode,

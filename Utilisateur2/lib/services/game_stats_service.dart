@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_leaderboard_service.dart';
 import 'firebase_history_service.dart';
+import 'player_name_service.dart';
 
 /// Service de gestion des statistiques de jeu et du chronomètre
 class GameStatsService {
@@ -33,6 +34,7 @@ class GameStatsService {
   // Service de classement et historique
   final FirebaseLeaderboardService _leaderboardService = FirebaseLeaderboardService();
   final FirebaseHistoryService _historyService = FirebaseHistoryService();
+  final PlayerNameService _playerNameService = PlayerNameService();
 
   /// Constructeur privé avec initialisation
   GameStatsService._internal() {
@@ -64,11 +66,11 @@ class GameStatsService {
 
   /// Démarre le chronomètre global de bout en bout
   void startGlobalGameSession({
-    required String playerName,
+    String? playerName,
     String gameMode = 'solo',
   }) {
     if (!_isGlobalSessionActive) {
-      _currentPlayerName = playerName;
+      _currentPlayerName = playerName ?? _playerNameService.getPlayerNameOrDefault();
       _currentGameMode = gameMode;
       _globalGameStartTime = DateTime.now();
       _globalGameDuration = Duration.zero;

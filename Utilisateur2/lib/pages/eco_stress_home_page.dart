@@ -2,8 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/player_name_service.dart';
+import '../widgets/player_name_input_dialog.dart';
 import '../services/global_score_service.dart';
 import '../services/game_stats_service.dart';
+import '../services/firebase_multiplayer_service.dart';
+import '../services/direct_test_runner.dart';
 import 'page1_puzzle.dart';
 import 'stress_page.dart';
 import 'page3_words.dart';
@@ -26,6 +30,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     with TickerProviderStateMixin {
   
   final GlobalScoreService _scoreService = GlobalScoreService();
+  final PlayerNameService _playerNameService = PlayerNameService();
   
   late AnimationController _pulseController;
   late AnimationController _stressController;
@@ -57,6 +62,10 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       _initializeAnimations();
       _startStressSimulation();
       _scoreService.startSession();
+      _runDirectTests();
+      
+      // Initialiser le service de nom de joueur
+      _playerNameService.initialize();
       
       // Haptic feedback au démarrage
       HapticFeedback.lightImpact();
@@ -65,7 +74,16 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       // Continuer même en cas d'erreur d'animation
     }
   }
-  
+
+  /// Exécuter les tests directs
+  Future<void> _runDirectTests() async {
+    try {
+      await DirectTestRunner.runAllTests();
+    } catch (e) {
+      debugPrint('Erreur lors des tests directs: $e');
+    }
+  }
+
   void _initializeAnimations() {
     try {
       _pulseController = AnimationController(
@@ -230,6 +248,60 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Row(
+          children: [
+            const Icon(Icons.games, color: Colors.deepPurple),
+            const SizedBox(width: 8),
+            const Text(
+              'Pandora Box',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Bouton nom du joueur
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            child: InkWell(
+              onTap: _showPlayerNameDialog,
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.deepPurple.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.person,
+                      color: Colors.deepPurple,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _playerNameService.getPlayerNameOrDefault(),
+                      style: const TextStyle(
+                        color: Colors.deepPurple,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -926,6 +998,42 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       );
     }
   }
+
+  /// Afficher le dialogue de saisie du nom du joueur
+  Future<void> _showPlayerNameDialog() async {
+    HapticFeedback.lightImpact();
+    
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => PlayerNameInputDialog(
+        currentName: _playerNameService.currentPlayerName,
+        isRequired: false,
+      ),
+    );
+    
+    if (result != null) {
+      setState(() {
+        // Reconstruire l'interface pour mettre à jour le nom affiché
+      });
+      
+      // Mettre à jour le nom dans le service multijoueur
+      try {
+        final multiplayerService = FirebaseMultiplayerService();
+        await multiplayerService.updateCurrentPlayerName();
+      } catch (e) {
+        debugPrint('Erreur mise à jour nom multijoueur: $e');
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Nom du joueur défini: $result'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
   
   void _showGameRules() {
     showModalBottomSheet(
@@ -1185,7 +1293,7 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     // Démarrer la session globale si ce n'est pas déjà fait
     final GameStatsService statsService = GameStatsService();
     if (!statsService.isGlobalSessionActive) {
-      final playerName = statsService.currentPlayerName ?? 'Joueur';
+      final playerName = _playerNameService.getPlayerNameOrDefault();
       statsService.startGlobalGameSession(playerName: playerName, gameMode: 'solo');
     }
     

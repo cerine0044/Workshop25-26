@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../firebase_options.dart';
+import 'player_name_service.dart';
 
 class FirebaseMultiplayerService {
   static final FirebaseMultiplayerService _instance = FirebaseMultiplayerService._internal();
@@ -17,6 +18,8 @@ class FirebaseMultiplayerService {
   String? _currentRoomId;
   String? _currentPlayerId;
   String? _currentPlayerName;
+  
+  final PlayerNameService _playerNameService = PlayerNameService();
   
   StreamController<Map<String, dynamic>?>? _roomStateController;
   StreamController<List<Map<String, dynamic>>>? _availableRoomsController;
@@ -59,16 +62,19 @@ class FirebaseMultiplayerService {
         print('⚠️ Erreur auth, création d\'un utilisateur local: $authError');
         // Créer un utilisateur local si l'auth échoue
         _currentPlayerId = _generatePlayerId();
-        _currentPlayerName = _generatePlayerName();
+        _currentPlayerName = _playerNameService.getPlayerNameOrDefault();
       }
+      
+      // Initialiser le PlayerNameService d'abord
+      await _playerNameService.initialize();
       
       // Récupérer les infos utilisateur
       if (_auth!.currentUser != null) {
         _currentPlayerId = _auth!.currentUser!.uid;
-        _currentPlayerName = _auth!.currentUser!.displayName ?? _generatePlayerName();
+        _currentPlayerName = _auth!.currentUser!.displayName ?? _playerNameService.getPlayerNameOrDefault();
       } else if (_currentPlayerId == null) {
         _currentPlayerId = _generatePlayerId();
-        _currentPlayerName = _generatePlayerName();
+        _currentPlayerName = _playerNameService.getPlayerNameOrDefault();
       }
       
       _isInitialized = true;
@@ -132,6 +138,7 @@ class FirebaseMultiplayerService {
             'name': _currentPlayerName,
             'isHost': true,
             'isReady': false,
+            'isCurrentPlayer': true,
             'joinedAt': DateTime.now().toIso8601String(),
             'avatar': _generateAvatar(),
           }
@@ -219,6 +226,7 @@ class FirebaseMultiplayerService {
         'name': _currentPlayerName,
         'isHost': false,
         'isReady': false,
+        'isCurrentPlayer': true,
         'joinedAt': DateTime.now().toIso8601String(),
         'avatar': _generateAvatar(),
       };
@@ -621,6 +629,26 @@ class FirebaseMultiplayerService {
     } catch (e) {
       print('❌ Erreur conversion List: $e');
       return null;
+    }
+  }
+
+  /// Mettre à jour le nom du joueur actuel depuis PlayerNameService
+  Future<void> updateCurrentPlayerName() async {
+    try {
+      await _playerNameService.initialize();
+      final newName = _playerNameService.getPlayerNameOrDefault();
+      
+      if (newName != _currentPlayerName) {
+        _currentPlayerName = newName;
+        print('🔄 Nom du joueur mis à jour: $newName');
+        
+        // Mettre à jour le nom dans la room si on est dans une room
+        if (_currentRoomId != null) {
+          await updatePlayerName(newName);
+        }
+      }
+    } catch (e) {
+      print('❌ Erreur mise à jour nom joueur: $e');
     }
   }
 
