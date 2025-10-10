@@ -55,6 +55,15 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
     }
   }
 
+  /// Extraire le numéro de run du sessionId
+  String _extractRunNumber(String sessionId) {
+    final parts = sessionId.split('_');
+    if (parts.length >= 3 && parts[1] == 'run') {
+      return parts[2];
+    }
+    return 'N/A';
+  }
+
   void _sortSessions() {
     setState(() {
       switch (_sortBy) {
@@ -276,6 +285,24 @@ class _GlobalScoresPageState extends State<GlobalScoresPage> {
                                     children: [
                                       Row(
                                         children: [
+                                          // Numéro de run
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.deepPurple.shade100,
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              'Run #${_extractRunNumber(session.sessionId)}',
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.deepPurple.shade800,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          // Nom du joueur
                                           Text(
                                             session.playerName,
                                             style: const TextStyle(
