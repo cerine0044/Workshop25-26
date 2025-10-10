@@ -12,6 +12,7 @@ class GameStatsService {
   factory GameStatsService() => _instance;
 
   // Contrôleurs de chronomètre
+  int _sessionCounter = 0;
   Timer? _timer;
   DateTime? _gameStartTime;
   Duration _currentGameDuration = Duration.zero;
@@ -326,8 +327,9 @@ class GameStatsService {
       // Initialiser les services si nécessaire
       await _initializeServices();
       
+      _sessionCounter++;
       final historySession = GameSessionHistory(
-        sessionId: '${session.playerName}_${session.startTime.millisecondsSinceEpoch}',
+        sessionId: '${session.playerName}_run_${_sessionCounter}_${session.startTime.millisecondsSinceEpoch}',
         playerName: session.playerName,
         gameRoom: session.gameRoom,
         gameMode: session.gameMode,

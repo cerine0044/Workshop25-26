@@ -43,6 +43,24 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
     }
   }
 
+  /// Extraire le numéro de run du sessionId
+  String _extractRunNumber(String sessionId) {
+    final parts = sessionId.split('_');
+    if (parts.length >= 3 && parts[1] == 'run') {
+      return parts[2];
+    }
+    return 'N/A';
+  }
+
+  /// Extraire le nom du joueur du sessionId
+  String _extractPlayerName(String sessionId) {
+    final parts = sessionId.split('_');
+    if (parts.isNotEmpty) {
+      return parts[0];
+    }
+    return 'Inconnu';
+  }
+
   void _sortSessions() {
     setState(() {
       switch (_sortBy) {
@@ -213,6 +231,24 @@ class _GlobalHistoryPageState extends State<GlobalHistoryPage> {
                               children: [
                                 Row(
                                   children: [
+                                    // Numéro de run
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.deepPurple.shade100,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        'Run #${_extractRunNumber(session.sessionId)}',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.deepPurple.shade800,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    // Nom du joueur
                                     Expanded(
                                       child: Text(
                                         session.playerName,

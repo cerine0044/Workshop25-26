@@ -7,7 +7,6 @@ import '../widgets/player_name_input_dialog.dart';
 import '../services/global_score_service.dart';
 import '../services/game_stats_service.dart';
 import '../services/firebase_multiplayer_service.dart';
-import '../services/direct_test_runner.dart';
 import 'page1_puzzle.dart';
 import 'stress_page.dart';
 import 'page3_words.dart';
@@ -62,7 +61,6 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
       _initializeAnimations();
       _startStressSimulation();
       _scoreService.startSession();
-      _runDirectTests();
       
       // Initialiser le service de nom de joueur
       _playerNameService.initialize();
@@ -72,15 +70,6 @@ class _EcoStressHomePageState extends State<EcoStressHomePage>
     } catch (e) {
       print('❌ Erreur initialisation EcoStressHomePage: $e');
       // Continuer même en cas d'erreur d'animation
-    }
-  }
-
-  /// Exécuter les tests directs
-  Future<void> _runDirectTests() async {
-    try {
-      await DirectTestRunner.runAllTests();
-    } catch (e) {
-      debugPrint('Erreur lors des tests directs: $e');
     }
   }
 
