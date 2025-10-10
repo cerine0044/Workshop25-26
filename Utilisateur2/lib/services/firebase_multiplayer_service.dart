@@ -331,6 +331,48 @@ class FirebaseMultiplayerService {
     }
   }
 
+  /// Gérer la déconnexion d'un joueur
+  Future<void> handlePlayerDisconnection(String playerId) async {
+    if (_currentRoomId == null) return;
+    
+    try {
+      final roomRef = _database!.ref('rooms/$_currentRoomId');
+      final snapshot = await roomRef.get();
+      
+      if (!snapshot.exists) return;
+      
+      final roomData = _convertToMap(snapshot.value);
+      if (roomData == null) return;
+      
+      final players = Map<String, dynamic>.from(roomData['players'] ?? {});
+      
+      // Supprimer le joueur déconnecté
+      if (players.containsKey(playerId)) {
+        players.remove(playerId);
+        
+        await roomRef.update({
+          'players': players,
+          'lastActivity': DateTime.now().toIso8601String(),
+        });
+        
+        print('✅ Joueur $playerId supprimé de la room');
+        
+        // Si c'est l'hôte qui se déconnecte, transférer l'hôte
+        if (roomData['hostId'] == playerId && players.isNotEmpty) {
+          final newHostId = players.keys.first;
+          await roomRef.update({
+            'hostId': newHostId,
+            'hostName': players[newHostId]['name'],
+          });
+          print('✅ Nouvel hôte: $newHostId');
+        }
+      }
+      
+    } catch (e) {
+      print('❌ Erreur gestion déconnexion: $e');
+    }
+  }
+
   Future<void> toggleReady() async {
     if (_currentRoomId == null || !_isInitialized) return;
 
@@ -366,13 +408,24 @@ class FirebaseMultiplayerService {
   }
 
   Future<void> startGame() async {
-    if (_currentRoomId == null || !_isInitialized) return;
+    print('🎮 startGame() appelé');
+    print('📊 _currentRoomId: $_currentRoomId');
+    print('📊 _isInitialized: $_isInitialized');
+    print('📊 _currentPlayerId: $_currentPlayerId');
+    
+    if (_currentRoomId == null || !_isInitialized) {
+      print('❌ Conditions non remplies pour startGame');
+      return;
+    }
 
     try {
       final roomRef = _database!.ref('rooms/$_currentRoomId');
       final snapshot = await roomRef.get();
       
-      if (!snapshot.exists) return;
+      if (!snapshot.exists) {
+        print('❌ Room n\'existe pas');
+        return;
+      }
       
       final roomData = _convertToMap(snapshot.value);
       if (roomData == null) {
@@ -380,11 +433,17 @@ class FirebaseMultiplayerService {
         return;
       }
       
+      print('📊 Room data: $roomData');
+      print('📊 hostId: ${roomData['hostId']}');
+      print('📊 currentPlayerId: $_currentPlayerId');
+      
       // Vérifier que c'est l'hôte
       if (roomData['hostId'] != _currentPlayerId) {
+        print('❌ Pas l\'hôte - hostId: ${roomData['hostId']}, currentPlayerId: $_currentPlayerId');
         throw Exception('Seul l\'hôte peut démarrer le jeu');
       }
       
+      print('✅ Vérification hôte OK, mise à jour Firebase...');
       await roomRef.update({
         'gameState': 'playing',
         'gameStartedAt': DateTime.now().toIso8601String(),
@@ -651,6 +710,21 @@ class FirebaseMultiplayerService {
       print('❌ Erreur conversion List: $e');
       return null;
     }
+  }
+
+  /// Récupérer les données de la room actuelle
+  Future<Map<String, dynamic>?> getCurrentRoomData() async {
+    if (_currentRoomId == null) return null;
+    
+    try {
+      final snapshot = await _database!.ref('rooms/$_currentRoomId').get();
+      if (snapshot.exists) {
+        return _convertToMap(snapshot.value);
+      }
+    } catch (e) {
+      print('❌ Erreur récupération données room: $e');
+    }
+    return null;
   }
 
   /// Mettre à jour le nom du joueur actuel depuis PlayerNameService

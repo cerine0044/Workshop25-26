@@ -163,7 +163,7 @@ class _WorkingMultiplayerPageState extends State<WorkingMultiplayerPage>
             builder: (_) => WaitingRoomPage(
               roomCode: roomCode,
               roomName: roomName,
-              isHost: true,
+              isHost: true, // Le créateur est toujours l'hôte
             ),
           ),
         );
@@ -205,7 +205,7 @@ class _WorkingMultiplayerPageState extends State<WorkingMultiplayerPage>
             builder: (_) => WaitingRoomPage(
               roomCode: roomCode,
               roomName: 'Room Rejointe',
-              isHost: false,
+              isHost: false, // Celui qui rejoint n'est jamais l'hôte
             ),
           ),
         );

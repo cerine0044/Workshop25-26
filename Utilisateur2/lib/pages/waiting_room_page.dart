@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../services/firebase_multiplayer_service.dart';
 import '../services/player_name_service.dart';
 import '../widgets/chat_widget.dart';
+import 'multiplayer_game_page.dart';
 
 class WaitingRoomPage extends StatefulWidget {
   final String roomCode;
@@ -149,6 +150,12 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
           setState(() {
             _currentRoom = room;
           });
+          
+          // Vérifier si le jeu a démarré pour tous les joueurs
+          if (room != null && room['gameState'] == 'playing') {
+            print('🎮 Jeu démarré détecté, navigation vers MultiplayerGamePage');
+            _navigateToGame();
+          }
         }
       },
       onError: (error) {
@@ -158,6 +165,24 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
         }
       },
     );
+  }
+
+  void _navigateToGame() async {
+    try {
+      print('🚀 Navigation vers MultiplayerGamePage pour tous les joueurs');
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const MultiplayerGamePage(),
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Erreur navigation vers le jeu: $e');
+      if (mounted) {
+        _showErrorMessage('Erreur navigation: $e');
+      }
+    }
   }
 
   void _showErrorMessage(String message) {
@@ -215,20 +240,40 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
           // Mettre à jour l'état de la room pour démarrer le jeu
           await _multiplayerService.startGame();
           
-          // Attendre un peu puis naviguer vers le jeu
-          await Future.delayed(const Duration(seconds: 1));
+          // La navigation sera gérée par _listenToRoomUpdates
+          // qui détectera le changement de gameState vers 'playing'
           
-          if (mounted) {
-            // Pour l'instant, on reste dans la salle d'attente
-            // mais on pourrait naviguer vers une page de jeu
-            _showSuccessMessage('Jeu démarré ! En attente de développement...');
-          }
         } catch (e) {
           _showErrorMessage('Erreur démarrage jeu: $e');
         }
       } else {
         _showErrorMessage('Il faut au moins 2 joueurs pour commencer');
       }
+    }
+  }
+
+  void _debugSkipToNotifications() async {
+    debugPrint('🐛 DEBUG: Passage direct aux notifications depuis la salle d\'attente');
+    
+    try {
+      HapticFeedback.mediumImpact();
+      _showSuccessMessage('Mode Debug activé - Passage aux notifications...');
+      
+      // Démarrer le jeu normalement d'abord
+      await _multiplayerService.startGame();
+      
+      // Attendre un peu puis naviguer directement vers MultiplayerGamePage
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Naviguer vers MultiplayerGamePage qui aura le bouton de debug
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const MultiplayerGamePage(),
+        ),
+      );
+      
+    } catch (e) {
+      _showErrorMessage('Erreur debug: $e');
     }
   }
 
@@ -627,6 +672,26 @@ class _WaitingRoomPageState extends State<WaitingRoomPage>
                 backgroundColor: Colors.green.shade600,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        
+        // Bouton de debug pour l'hôte
+        if (widget.isHost)
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _debugSkipToNotifications,
+              icon: const Icon(Icons.bug_report),
+              label: const Text('Debug: Aller aux Notifications'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

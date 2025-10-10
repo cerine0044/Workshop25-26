@@ -297,6 +297,85 @@ class GameStatsService {
     _durationListeners.remove(listener);
   }
 
+  /// Démarre une session de salle pour le multijoueur
+  void startRoomSession({
+    required String gameRoom,
+    required String gameMode,
+    required String playerName,
+  }) {
+    debugPrint('🎮 Début de salle: $gameRoom pour $playerName ($gameMode)');
+    // Cette méthode peut être étendue si nécessaire pour le multijoueur
+  }
+
+  /// Termine une session de salle pour le multijoueur
+  void endRoomSession({
+    required String gameRoom,
+    required int score,
+    required Duration time,
+    required bool completed,
+    required Map<String, dynamic> additionalData,
+  }) {
+    debugPrint('🎮 Fin de salle: $gameRoom - Score: $score, Temps: $time, Complété: $completed');
+    
+    // Créer une session pour cette salle
+    final session = GameSession(
+      playerName: _playerNameService.getPlayerNameOrDefault(),
+      gameRoom: gameRoom,
+      gameMode: 'multiplayer',
+      startTime: DateTime.now().subtract(time),
+      endTime: DateTime.now(),
+      duration: time,
+      completed: completed,
+      score: score,
+      additionalData: additionalData,
+    );
+    
+    // Ajouter la session
+    _completedSessions.add(session);
+    _notifyStatsListeners();
+    
+    // TODO: Sauvegarder dans Firebase
+  }
+
+  /// Récupère les sessions des joueurs pour le multijoueur
+  Map<String, Map<String, dynamic>> getPlayerSessions() {
+    final playerSessions = <String, Map<String, dynamic>>{};
+    
+    // Récupérer les sessions récentes (multijoueur)
+    final recentSessions = _completedSessions.where((session) => 
+      session.gameMode == 'multiplayer' && 
+      session.endTime.isAfter(DateTime.now().subtract(const Duration(hours: 1)))
+    ).toList();
+    
+    for (final session in recentSessions) {
+      final playerName = session.playerName;
+      if (playerName != null) {
+        playerSessions[playerName] ??= {
+          'playerName': playerName,
+          'totalScore': 0,
+          'totalTime': 0,
+          'rooms': <String, Map<String, dynamic>>{},
+          'completed': session.completed,
+          'sessionId': '${session.startTime.millisecondsSinceEpoch}',
+        };
+        
+        final playerData = playerSessions[playerName]!;
+        playerData['totalScore'] = (playerData['totalScore'] as int) + (session.score ?? 0);
+        playerData['totalTime'] = (playerData['totalTime'] as int) + session.duration.inSeconds;
+        
+        // Ajouter les données de la salle
+        playerData['rooms'][session.gameRoom] = {
+          'score': session.score ?? 0,
+          'time': session.duration.inSeconds,
+          'completed': session.completed,
+          'additionalData': session.additionalData,
+        };
+      }
+    }
+    
+    return playerSessions;
+  }
+
   /// Ajoute un listener pour les mises à jour de statistiques
   void addStatsListener(VoidCallback listener) {
     _statsListeners.add(listener);
