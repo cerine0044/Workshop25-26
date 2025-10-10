@@ -220,15 +220,20 @@ class FirebaseMultiplayerService {
       _currentRoomId = foundRoomId!;
       _listenToRoom(foundRoomId!);
       
-      // Ajouter le joueur à la room
+      // S'assurer que le nom du joueur est défini et sauvegardé
+      String playerName = _currentPlayerName ?? 'Joueur ${_currentPlayerId!.substring(0, 4)}';
+      
+      // Ajouter le joueur à la room avec sauvegarde complète
       players[_currentPlayerId!] = {
         'id': _currentPlayerId,
-        'name': _currentPlayerName,
+        'name': playerName,
         'isHost': false,
         'isReady': false,
         'isCurrentPlayer': true,
         'joinedAt': DateTime.now().toIso8601String(),
+        'lastActivity': DateTime.now().toIso8601String(),
         'avatar': _generateAvatar(),
+        'playerId': _currentPlayerId!, // Sauvegarder l'ID pour référence externe
       };
       
       print('👤 Ajout du joueur à la room Firebase');
@@ -271,6 +276,15 @@ class FirebaseMultiplayerService {
       final players = _convertToMap(roomData['players']) ?? {};
       
       if (players.containsKey(_currentPlayerId)) {
+        final playerName = players[_currentPlayerId]['name'] ?? 'Joueur';
+        
+        // Envoyer un message système avant de quitter
+        try {
+          await _sendSystemMessage('$playerName a quitté la room');
+        } catch (e) {
+          print('⚠️ Erreur envoi message système: $e');
+        }
+        
         players.remove(_currentPlayerId);
         
         // Si c'était l'hôte qui partait
@@ -285,6 +299,13 @@ class FirebaseMultiplayerService {
               'players': players,
               'lastActivity': DateTime.now().toIso8601String(),
             });
+            
+            // Envoyer un message système pour le nouveau hôte
+            try {
+              await _sendSystemMessage('${players[newHostId]['name']} est maintenant l\'hôte');
+            } catch (e) {
+              print('⚠️ Erreur envoi message système hôte: $e');
+            }
           } else {
             // Supprimer la room si plus personne
             await roomRef.remove();
@@ -707,6 +728,28 @@ class FirebaseMultiplayerService {
       
     } catch (e) {
       print('❌ Erreur envoi message: $e');
+    }
+  }
+
+  /// Envoie un message système dans le chat de la room
+  Future<void> _sendSystemMessage(String message) async {
+    if (_currentRoomId == null || !_isInitialized) return;
+
+    try {
+      final messageData = {
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'playerId': 'system',
+        'playerName': 'Système',
+        'message': message,
+        'timestamp': DateTime.now().toIso8601String(),
+        'isSystemMessage': true,
+      };
+
+      await _database!.ref('rooms/$_currentRoomId/chat').push().set(messageData);
+      print('✅ Message système envoyé: $message');
+      
+    } catch (e) {
+      print('❌ Erreur envoi message système: $e');
     }
   }
 }

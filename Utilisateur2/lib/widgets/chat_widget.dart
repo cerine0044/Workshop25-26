@@ -191,7 +191,14 @@ class _ChatWidgetState extends State<ChatWidget> with TickerProviderStateMixin {
     _messageController.dispose();
     _scrollController.dispose();
     _cooldownTimer?.cancel();
-    _chatService.dispose();
+    
+    // Fermer proprement le chat avec gestion d'erreur
+    try {
+      _chatService.dispose();
+    } catch (e) {
+      print('⚠️ Erreur fermeture chat: $e');
+    }
+    
     super.dispose();
   }
 

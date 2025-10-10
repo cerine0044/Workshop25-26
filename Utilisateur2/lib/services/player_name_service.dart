@@ -63,7 +63,14 @@ class PlayerNameService {
 
   /// Obtenir le nom du joueur ou un nom par défaut
   String getPlayerNameOrDefault({String defaultName = 'Joueur'}) {
-    return _currentPlayerName ?? defaultName;
+    if (_currentPlayerName != null && _currentPlayerName!.isNotEmpty) {
+      return _currentPlayerName!;
+    }
+    
+    // Générer un nom par défaut unique
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final randomSuffix = timestamp.toString().substring(timestamp.toString().length - 4);
+    return '${defaultName}_$randomSuffix';
   }
 
   /// Valider un nom de joueur
@@ -71,6 +78,11 @@ class PlayerNameService {
     if (name.trim().isEmpty) return false;
     if (name.trim().length < 2) return false;
     if (name.trim().length > 20) return false;
+    
+    // Vérifier les caractères spéciaux non autorisés
+    final specialChars = RegExp(r'[!@#$%^&*()+=\[\]{}|;:,.<>?/~`]');
+    if (specialChars.hasMatch(name)) return false;
+    
     return true;
   }
 

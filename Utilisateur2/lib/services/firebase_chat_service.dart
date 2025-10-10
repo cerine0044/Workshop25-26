@@ -277,6 +277,17 @@ class FirebaseChatService {
 
   /// Ferme le chat et nettoie les ressources
   Future<void> dispose() async {
+    try {
+      // Envoyer un message de déconnexion avant de fermer
+      if (_currentRoomCode != null && _currentPlayerName != null) {
+        await sendSystemMessage('$_currentPlayerName s\'est déconnecté');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ Erreur envoi message de déconnexion: $e');
+      }
+    }
+    
     await _chatSubscription?.cancel();
     await _chatController.close();
     _currentRoomCode = null;
